@@ -2,6 +2,7 @@
 
 const express = require('express');
 const pool = require('./db');
+const vehicleRoutes = require('./routes/vehicleRoutes');
 
 const app = express();
 
@@ -33,6 +34,8 @@ app.get('/health/db', async (req, res) => {
     });
   }
 });
+
+app.use('/api/vehicles', vehicleRoutes);
 
 app.use((req, res) => {
   res.status(404).json({
