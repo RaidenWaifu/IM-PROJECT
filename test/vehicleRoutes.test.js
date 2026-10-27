@@ -4,9 +4,20 @@ const assert = require('node:assert/strict');
 
 const app = require('../src/app');
 const vehicleService = require('../src/services/vehicleService');
+const { createAccessToken } = require('../src/utils/tokens');
 
 let server;
 let baseUrl;
+
+const testToken = createAccessToken({
+  userId: 9001,
+  roleId: 9001,
+  roleName: 'TEST Admin'
+});
+
+const authHeaders = {
+  Authorization: `Bearer ${testToken}`
+};
 
 const originalGetAllVehicles = vehicleService.getAllVehicles;
 const originalGetVehicleById = vehicleService.getVehicleById;
@@ -51,8 +62,18 @@ after(async () => {
   }
 });
 
-test('GET /api/vehicles returns a list of vehicles', async () => {
+test('GET /api/vehicles rejects requests without a token', async () => {
   const response = await fetch(`${baseUrl}/api/vehicles`);
+  const body = await response.json();
+
+  assert.equal(response.status, 401);
+  assert.equal(body.error, 'Authentication token required');
+});
+
+test('GET /api/vehicles returns a list with a valid token', async () => {
+  const response = await fetch(`${baseUrl}/api/vehicles`, {
+    headers: authHeaders
+  });
   const body = await response.json();
 
   assert.equal(response.status, 200);
@@ -60,8 +81,10 @@ test('GET /api/vehicles returns a list of vehicles', async () => {
   assert.equal(body.data[0].plate_number, 'TEST-001');
 });
 
-test('GET /api/vehicles/9001 returns the requested vehicle', async () => {
-  const response = await fetch(`${baseUrl}/api/vehicles/9001`);
+test('GET /api/vehicles/9001 returns the requested vehicle with a valid token', async () => {
+  const response = await fetch(`${baseUrl}/api/vehicles/9001`, {
+    headers: authHeaders
+  });
   const body = await response.json();
 
   assert.equal(response.status, 200);
@@ -69,8 +92,10 @@ test('GET /api/vehicles/9001 returns the requested vehicle', async () => {
   assert.equal(body.data.plate_number, 'TEST-001');
 });
 
-test('GET /api/vehicles/abc rejects an invalid vehicle ID', async () => {
-  const response = await fetch(`${baseUrl}/api/vehicles/abc`);
+test('GET /api/vehicles/abc rejects an invalid vehicle ID with a valid token', async () => {
+  const response = await fetch(`${baseUrl}/api/vehicles/abc`, {
+    headers: authHeaders
+  });
   const body = await response.json();
 
   assert.equal(response.status, 400);
@@ -78,20 +103,23 @@ test('GET /api/vehicles/abc rejects an invalid vehicle ID', async () => {
 });
 
 test('GET /api/vehicles/999999 returns 404 when the vehicle is missing', async () => {
-  const response = await fetch(`${baseUrl}/api/vehicles/999999`);
+  const response = await fetch(`${baseUrl}/api/vehicles/999999`, {
+    headers: authHeaders
+  });
   const body = await response.json();
 
   assert.equal(response.status, 404);
   assert.equal(body.error, 'Vehicle not found');
 });
 
-
 test('GET /api/vehicles returns 500 when the service fails', async () => {
   vehicleService.getAllVehicles = async () => {
     throw new Error('Simulated database failure');
   };
 
-  const response = await fetch(`${baseUrl}/api/vehicles`);
+  const response = await fetch(`${baseUrl}/api/vehicles`, {
+    headers: authHeaders
+  });
   const body = await response.json();
 
   assert.equal(response.status, 500);
