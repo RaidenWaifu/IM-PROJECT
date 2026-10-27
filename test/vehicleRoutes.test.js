@@ -84,3 +84,18 @@ test('GET /api/vehicles/999999 returns 404 when the vehicle is missing', async (
   assert.equal(response.status, 404);
   assert.equal(body.error, 'Vehicle not found');
 });
+
+
+test('GET /api/vehicles returns 500 when the service fails', async () => {
+  vehicleService.getAllVehicles = async () => {
+    throw new Error('Simulated database failure');
+  };
+
+  const response = await fetch(`${baseUrl}/api/vehicles`);
+  const body = await response.json();
+
+  assert.equal(response.status, 500);
+  assert.deepEqual(body, {
+    error: 'Unable to retrieve vehicles'
+  });
+});
