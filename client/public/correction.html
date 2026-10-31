@@ -1,0 +1,1532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FleetTrack – Operations Hub</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#10232a;--panel:#12242B;--line:rgba(255,255,255,.1);--ink:#10303a;--mute:#4a6570;--amber:#ffb000;--coral:#ff5a3c;--mint:#5fd3b0;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:inherit}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,sans-serif;overflow:hidden}
+canvas{display:block;position:fixed;inset:0;width:100%;height:100%;touch-action:none}
+header{position:fixed;left:16px;top:calc(12px + env(safe-area-inset-top,0px));display:flex;align-items:center;gap:10px;z-index:3;pointer-events:none}
+header b{font-weight:800;font-size:20px;letter-spacing:-.02em}
+header span{color:var(--mute);font-size:13px}
+#hint{position:fixed;left:16px;bottom:calc(14px + env(safe-area-inset-bottom,0px));color:var(--mute);font-size:13px;z-index:3;pointer-events:none}
+#back{position:fixed;left:16px;top:calc(56px + env(safe-area-inset-top,0px));z-index:4;background:var(--amber);color:#1b1400;border:0;border-radius:8px;padding:8px 14px;font:600 14px inherit;font-family:inherit;cursor:pointer;display:none}
+.pin{position:fixed;left:0;top:0;z-index:2;transform:translate(-50%,-100%);background:rgba(16,35,42,.88);border:1.5px solid var(--line);color:var(--ink);border-radius:10px;padding:6px 10px;font-family:inherit;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:1px;white-space:nowrap;transition:border-color .15s,background .15s}
+.pin b{font-size:14px;font-weight:600}.pin span{font-size:12px;color:var(--mute)}
+.pin:hover,.pin:focus-visible,.pin.on{border-color:var(--amber);background:#1d3a44;outline:none}
+.pin:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.pin.alert::after{content:"";position:absolute;right:-5px;top:-5px;width:12px;height:12px;border-radius:50%;background:var(--coral);border:2px solid var(--bg)}
+#panel{position:fixed;right:0;top:0;bottom:0;width:min(380px,100%);background:var(--panel);border-left:1px solid var(--line);z-index:5;padding:calc(20px + env(safe-area-inset-top,0px)) 20px 20px;transform:translateX(100%);transition:transform .35s cubic-bezier(.2,.8,.2,1);overflow:auto}
+#panel.open{transform:none}
+#panel h2{margin:0 0 2px;font-size:26px;font-weight:800;letter-spacing:-.02em}
+#panel .sub{color:var(--mute);font-size:14px;margin:0 0 18px}
+#x{position:absolute;right:14px;top:calc(14px + env(safe-area-inset-top,0px));background:none;border:1px solid var(--line);color:var(--ink);border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:18px}
+.stats div{background:var(--panel);padding:12px}
+.stats b{display:block;font-size:26px;font-weight:800;line-height:1}.stats span{font-size:12px;color:var(--mute)}
+ul{list-style:none;margin:0 0 18px;padding:0}
+li{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+li i{width:9px;height:9px;border-radius:50%;flex:none}li em{margin-left:auto;font-style:normal;color:var(--mute);font-size:13px}
+.open-btn{width:100%;background:var(--amber);color:#1b1400;border:0;border-radius:8px;padding:12px;font:600 15px inherit;font-family:inherit;cursor:pointer}
+.note{font-size:12px;color:var(--mute);margin-top:10px}
+#load{position:fixed;inset:0;background:var(--bg);display:grid;place-items:center;z-index:9;transition:opacity .5s;color:var(--mute)}
+@media(max-width:640px){#panel{top:auto;height:62%;width:100%;border-left:0;border-top:1px solid var(--line);transform:translateY(100%)}#hint{display:none}.pin span{display:none}}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+#dash{position:fixed;inset:0;z-index:10;background:var(--bg);display:none;grid-template-columns:190px 1fr}
+#dash.on{display:grid}
+.rail{background:#0c1c21;border-right:1px solid var(--line);padding:calc(14px + env(safe-area-inset-top,0px)) 10px;display:flex;flex-direction:column;gap:4px}
+.rail a{color:var(--mute);text-decoration:none;padding:9px 10px;border-radius:8px;display:flex;align-items:center;gap:9px;font-size:14px}
+.rail a i{width:9px;height:9px;border-radius:3px;background:var(--c,var(--mute))}
+.rail a.a{background:#1d3a44;color:var(--ink)}
+.rail .home{color:#1b1400;background:var(--amber);font-weight:600;margin-bottom:10px;justify-content:center}
+#dash main{overflow:auto;padding:calc(22px + env(safe-area-inset-top,0px)) 28px 40px}
+.dh{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-top:4px solid var(--acc);padding-top:14px;margin-bottom:16px}
+.dh h1{margin:0;font-size:30px;font-weight:800;letter-spacing:-.02em}.dh p{margin:2px 0 0;color:var(--mute)}
+.back2{color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 12px;text-decoration:none;font-size:14px;white-space:nowrap}
+.strip{display:flex;flex-wrap:wrap;gap:8px 28px;margin-bottom:20px;color:var(--mute);font-size:14px}.strip b{color:var(--ink);font-size:22px;margin-right:4px}
+.pill{background:color-mix(in srgb,var(--c) 18%,transparent);color:var(--c);border-radius:99px;padding:2px 9px;font-size:12px;font-weight:600;white-space:nowrap}
+.chips{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}.chip{background:none;border:1px solid var(--line);color:var(--mute);border-radius:99px;padding:6px 14px;font-family:inherit;cursor:pointer}.chip.a{background:var(--acc);color:#10232a;border-color:var(--acc);font-weight:600}
+.vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+.v{background:var(--panel);border-radius:10px;border-left:4px solid var(--c);padding:12px;display:flex;flex-direction:column;gap:6px}
+.v span,.v small{color:var(--mute);font-size:13px}.fb{height:5px;background:var(--line);border-radius:3px}.fb i{display:block;height:100%;background:var(--c);border-radius:3px}.v .pill{align-self:flex-start}
+table{width:100%;border-collapse:collapse;font-size:14px}th{text-align:left;color:var(--mute);font-weight:400;padding:8px;border-bottom:1px solid var(--line)}td{padding:11px 8px;border-bottom:1px solid var(--line)}
+.board{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.col h3{margin:0 0 8px;font-size:14px;color:var(--c)}
+.tc{background:var(--panel);border-radius:10px;padding:11px;margin-bottom:8px;font-size:14px}.tc small{display:block;color:var(--mute);margin-top:3px}
+.bay{background:var(--panel);border-radius:10px;padding:14px;margin-bottom:10px}.bar{height:12px;background:var(--line);border-radius:6px;margin:8px 0 4px;overflow:hidden}.bar i{display:block;height:100%;background:var(--acc)}
+.chart{display:flex;align-items:flex-end;gap:12px;height:170px;margin-bottom:38px;border-bottom:1px solid var(--line)}.chart div{flex:1;background:var(--acc);border-radius:5px 5px 0 0;position:relative}.chart span{position:absolute;bottom:-22px;left:0;right:0;text-align:center;font-size:12px;color:var(--mute)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+@media(max-width:760px){#dash.on{grid-template-columns:1fr;grid-template-rows:auto 1fr}.rail{flex-direction:row;overflow-x:auto;padding:calc(8px + env(safe-area-inset-top,0px)) 8px 8px}.rail a{white-space:nowrap}.rail .home{margin:0}#dash main{padding:16px}.two{grid-template-columns:1fr}}
+header span,#hint{color:#4a6a70}header b{color:#12353b}
+#dash{background:#0d1d23}.rail{background:#0a171c}
+#panel{right:16px;top:16px;bottom:auto;max-height:calc(100% - 32px);width:min(372px,calc(100% - 32px));background:rgba(18,36,43,.88);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.08);border-top:4px solid var(--acc);border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.35);padding:0 18px 18px;transform:translateX(calc(100% + 24px))}
+#panel.open{transform:none}
+.dhead{display:flex;align-items:center;gap:14px;padding:16px 38px 16px 0}.dhead h2{font-size:22px;margin:0}.dhead .sub{margin:2px 0 0;font-size:13px}
+.ico{flex:none;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(145deg,var(--acc),color-mix(in srgb,var(--acc) 55%,#000));box-shadow:0 5px 0 color-mix(in srgb,var(--acc) 45%,#000),0 9px 16px rgba(0,0,0,.35);margin-bottom:5px}
+.kp{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}.kc{background:#162C35;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:11px 12px}.kc b{display:block;font-size:22px;font-weight:800;line-height:1.1}.kc span{font-size:12px;color:#4a6570}
+#panel li{font-size:14px}#panel li em{margin-left:auto}#panel .sub,#panel .note{color:#4a6570}
+#panel .open-btn{background:var(--acc);color:#10232a;border-radius:10px;padding:13px;font-weight:700}#panel .open-btn:hover{filter:brightness(1.1)}
+#x{border-color:rgba(255,255,255,.12);right:14px;top:16px}
+#conn{position:fixed;inset:0;width:100%;height:100%;z-index:4;pointer-events:none;display:none}
+#ln{fill:none;stroke:var(--acc);stroke-width:1.6;stroke-dasharray:5 5;filter:drop-shadow(0 0 4px var(--acc));animation:dsh 1s linear infinite}@keyframes dsh{to{stroke-dashoffset:-10}}
+#cm circle{fill:var(--acc)}#cm .pr{fill:none;stroke:var(--acc);stroke-width:2;transform-box:fill-box;transform-origin:center;animation:pls 1.6s ease-out infinite}@keyframes pls{from{transform:scale(.6);opacity:1}to{transform:scale(2.4);opacity:0}}
+.top{display:flex;gap:10px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:#12242B;color:var(--ink);text-decoration:none;font:600 14px inherit;font-family:inherit;cursor:pointer}.btn:hover{border-color:var(--acc)}.btn.p{background:color-mix(in srgb,var(--acc) 16%,#12242B);border-color:color-mix(in srgb,var(--acc) 50%,transparent)}
+.dh2{display:flex;align-items:center;gap:14px;margin:18px 0 18px}.dh2 h1{margin:0;font-size:30px;font-weight:800;letter-spacing:-.02em}.dh2 p{margin:2px 0 0;color:#4a6570}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}.kpi{background:#162C35;border:1px solid rgba(255,255,255,.08);border-top:3px solid var(--acc);border-radius:16px;padding:16px;box-shadow:0 8px 24px rgba(0,0,0,.2)}.kpi b{display:block;font-size:30px;font-weight:800;line-height:1.1}.kpi span{color:#4a6570;font-size:14px}.kpi small{display:block;margin-top:6px;font-size:12px;font-weight:600}
+.card{background:#12242B;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:18px;box-shadow:0 10px 30px rgba(0,0,0,.25)}.card h3{margin:0;font-size:17px}.card.wide{grid-column:1/-1}
+.card.warn{border-color:rgba(255,209,0,.45);background:linear-gradient(180deg,rgba(255,209,0,.09),#12242B 65%)}
+.fgrid{display:grid;grid-template-columns:2fr 1fr;gap:16px}.stack{display:grid;gap:16px;align-content:start}
+.ch{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.sm{color:#4a6570;font-size:13px;margin:4px 0}.big{font-size:32px;display:block;margin-top:8px}
+.bar2{height:10px;border-radius:6px;background:rgba(255,255,255,.1);margin:10px 0;overflow:hidden}.bar2 i{display:block;height:100%;background:linear-gradient(90deg,#FFD100,#F5821F);border-radius:6px}
+.acts{display:flex;gap:8px;flex-wrap:wrap}.cs{width:100%;height:auto;display:block;margin-top:8px}.tw{overflow-x:auto}
+.card td{padding:14px 10px}.card th{color:#4a6570;padding:10px}.card tbody tr:hover{background:rgba(255,255,255,.04)}
+@media(max-width:900px){.kpis{grid-template-columns:1fr 1fr}.fgrid{grid-template-columns:1fr}}
+@media(max-width:640px){#panel{left:8px;right:8px;width:auto;top:auto;bottom:8px;height:auto;max-height:62%;transform:translateY(calc(100% + 16px))}#panel.open{transform:none}}
+@media(prefers-reduced-motion:reduce){#panel{transition:none}#ln,#cm .pr{animation:none}}
+/* ---- Liquid glass ---- */
+#panel,#dash{--ink:#10303a;--mute:#4a6570;--line:rgba(16,48,58,.12);--panel:rgba(255,255,255,.55);color:#10303a}
+body.dm .pin,body.dm #back,body.dm #panel,body.dm #conn,body.dm header,body.dm #hint{display:none}
+.pin{background:rgba(255,255,255,.72);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:1.5px solid rgba(255,255,255,.85);color:#10303a;box-shadow:0 6px 18px rgba(16,48,58,.18)}
+.pin span{color:#4a6570}.pin:hover,.pin:focus-visible,.pin.on{background:#fff;border-color:#10303a}
+#dash{background:rgba(238,244,246,.3)}
+.rail{margin:14px 0 14px 14px;align-self:start;border-radius:28px;padding:12px;background:rgba(255,255,255,.6);-webkit-backdrop-filter:blur(20px) saturate(160%);backdrop-filter:blur(20px) saturate(160%);border:1.5px solid rgba(255,255,255,.85);box-shadow:0 12px 36px rgba(16,48,58,.18),inset 0 1px 0 #fff}
+.rail a{border-radius:999px;border:1.5px solid transparent;color:#4a6570;transition:background .15s,border-color .15s}
+.rail a:hover{background:rgba(255,255,255,.7);color:#10303a}.rail a.a{background:#fff;border-color:#10303a;color:#10303a;font-weight:600;box-shadow:0 2px 0 #10303a}
+.rail a i{width:11px;height:11px;border-radius:50%;border:1.5px solid #10303a}
+#dash main{padding-top:calc(18px + env(safe-area-inset-top,0px))}
+.dh3{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px 20px;margin-bottom:20px}
+.hl{display:flex;align-items:center;gap:16px;flex:1 1 320px;min-width:0}.hl>div{min-width:0}.hl h1{margin:0;font-size:30px;font-weight:800;letter-spacing:-.02em;overflow-wrap:anywhere}.hl p{margin:3px 0 0;color:#4a6570}
+.hr{display:flex;gap:10px;flex-wrap:wrap}
+.btn{border-radius:999px;background:rgba(255,255,255,.75);border:1.5px solid #10303a;color:#10303a;box-shadow:0 3px 0 #10303a;transition:transform .12s,box-shadow .12s}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 0 #10303a;border-color:#10303a}.btn:active{transform:translateY(3px);box-shadow:0 0 0 #10303a}
+.btn.p{background:linear-gradient(135deg,color-mix(in srgb,var(--acc) 45%,#fff),var(--acc));border-color:#10303a}.btn:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+.ico{position:relative;display:block;width:46px;height:46px;margin:0 7px 7px 0;background:none;box-shadow:none;border-radius:0;color:#10303a}
+.ico::before{content:"";position:absolute;inset:0;transform:translate(7px,7px);background:var(--acc);border:1.5px solid #10303a;border-radius:15px}
+.ico svg{position:relative;box-sizing:border-box;width:46px;height:46px;padding:11px;border-radius:15px;background:rgba(255,255,255,.6);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1.5px solid #fff;box-shadow:0 4px 12px rgba(16,48,58,.2),inset 0 1px 0 #fff;stroke:#10303a}
+.card,.kpi,.kc,.v,.tc,.bay{background:rgba(255,255,255,.7);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border:1.5px solid rgba(255,255,255,.85);box-shadow:0 10px 30px rgba(16,48,58,.14),inset 0 1px 0 #fff}
+.kpi,.kc{position:relative}.kpi{border-top:1.5px solid rgba(255,255,255,.85)}
+.kpi::before,.kc::before{content:"";position:absolute;right:14px;top:14px;width:12px;height:12px;border-radius:50%;background:var(--acc);border:1.5px solid #10303a}
+.kc{border-radius:16px}.kc::before{width:10px;height:10px;right:12px;top:12px}
+.pill{background:color-mix(in srgb,var(--c) 30%,#fff);color:#10303a;border:1.5px solid #10303a;padding:1px 10px}
+.card.warn{border:1.5px solid #10303a;background:linear-gradient(180deg,rgba(255,209,0,.3),rgba(255,255,255,.7) 70%)}
+.card td{border-bottom:1px solid rgba(16,48,58,.1)}.card tbody tr:hover{background:rgba(255,255,255,.65)}.card tbody tr:last-child td{border-bottom:0}
+.card th{border-bottom:1.5px solid rgba(16,48,58,.18)}
+.cs rect{filter:drop-shadow(0 4px 6px rgba(245,130,31,.35))}
+.bar2{background:rgba(16,48,58,.1);border:1.5px solid #10303a;height:14px}.bar2 i{border-radius:999px}
+.pw{position:relative;padding-top:26px}.fl{position:absolute;top:0;transform:translateX(-50%);background:#fff;border:1.5px solid #10303a;border-radius:999px;padding:1px 8px;font-size:12px;font-weight:700}
+#panel{top:0;right:0;bottom:0;max-height:none;width:min(390px,100%);padding:0 20px 20px;background:rgba(255,255,255,.65);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);border:0;border-left:1.5px solid rgba(255,255,255,.85);border-radius:28px 0 0 28px;box-shadow:-14px 0 44px rgba(16,48,58,.2)}
+#panel .open-btn{width:100%;border-radius:999px;border:1.5px solid #10303a;background:linear-gradient(135deg,color-mix(in srgb,var(--acc) 45%,#fff),var(--acc));color:#10303a;font-weight:700;box-shadow:0 4px 0 #10303a,0 10px 18px rgba(16,48,58,.2);transition:transform .12s,box-shadow .12s}
+#panel .open-btn:hover{transform:translateY(-1px);filter:none;box-shadow:0 5px 0 #10303a,0 12px 20px rgba(16,48,58,.22)}
+#panel .open-btn:active{transform:translateY(3px);box-shadow:0 1px 0 #10303a}#panel .open-btn:disabled{opacity:.5;cursor:not-allowed}
+#x{border:1.5px solid #10303a;border-radius:999px;background:rgba(255,255,255,.75);color:#10303a;top:calc(18px + env(safe-area-inset-top,0px))}
+#ln{filter:drop-shadow(0 0 3px #fff)}
+@media(max-width:760px){.rail{margin:8px;border-radius:999px;padding:6px}}
+@media(max-width:640px){#panel{top:auto;bottom:0;left:0;right:0;width:auto;max-height:64%;border-left:0;border-top:1.5px solid rgba(255,255,255,.85);border-radius:28px 28px 0 0}}
+@media(prefers-reduced-motion:reduce){.btn,#panel .open-btn,.rail a{transition:none}}
+
+/* ---- structure: sticky header, sheet, backdrop ---- */
+body.dm canvas{visibility:hidden}
+#dash .bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;background:radial-gradient(circle at 12% 8%,rgba(255,255,255,.9),transparent 38%),radial-gradient(circle at 88% 22%,color-mix(in srgb,var(--acc) 32%,transparent),transparent 46%),linear-gradient(180deg,#bfe4fb 0%,#e6f3f7 55%,#fdf0d8 100%)}
+#dash .bg svg{position:absolute;left:0;bottom:0;width:100%;height:46%;opacity:.65}
+#dash{background:none}.rail,#dash main{position:relative;z-index:1}
+#dash main{display:flex;flex-direction:column}
+.dh3{position:sticky;top:0;z-index:5;margin:calc(-18px - env(safe-area-inset-top,0px)) -28px 20px;padding:calc(14px + env(safe-area-inset-top,0px)) 28px 14px;background:rgba(255,255,255,.62);-webkit-backdrop-filter:blur(20px) saturate(160%);backdrop-filter:blur(20px) saturate(160%);border-bottom:1.5px solid rgba(255,255,255,.85);box-shadow:0 8px 24px rgba(16,48,58,.12)}
+.btn.hub{background:#10303a;color:#fff;font-size:15px;padding:11px 20px;box-shadow:0 3px 0 var(--acc)}.btn.hub:hover{box-shadow:0 4px 0 var(--acc)}.btn.hub:active{box-shadow:0 0 0 var(--acc)}
+.sheet{background:rgba(255,255,255,.38);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border:1.5px solid rgba(255,255,255,.85);border-radius:28px;padding:20px;box-shadow:0 14px 40px rgba(16,48,58,.14),inset 0 1px 0 #fff;margin-bottom:28px}
+.sh{grid-column:1/-1;margin:0 0 12px;font-size:15px;font-weight:700;display:flex;align-items:center;gap:10px}.sh::after{content:"";flex:1;height:1.5px;background:rgba(16,48,58,.14)}.fgrid .sh{margin:6px 0 -4px}
+.ch .chips{margin:0}
+.rh{margin:2px 0 4px;font-size:14px}
+#pc{min-height:100%;display:flex;flex-direction:column}#pc ul{margin-bottom:auto}
+@media(max-width:760px){.dh3{margin:-16px -16px 16px;padding:12px 16px}.sheet{padding:14px;border-radius:22px}}
+
+/* Dashboard navigation and fixed backdrop corrections */
+#dash .bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+#dash .bg svg{position:absolute;left:0;bottom:0;width:100%;height:46%;opacity:.65}
+#dash main{position:relative;z-index:1;min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+#dash .dh3{
+  position:sticky;left:auto;right:auto;top:0;z-index:6;
+  display:flex;align-items:center;justify-content:space-between;
+  width:auto;gap:16px;flex-wrap:wrap;
+  pointer-events:auto;
+}
+#dash .dh3 .hl{pointer-events:auto;flex:1 1 260px;min-width:0}
+#dash .dh3 .hr{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;pointer-events:auto}
+#dash .dh3 .btn{pointer-events:auto;cursor:pointer}
+#dash .dh3 .btn.hub{display:inline-flex;align-items:center;justify-content:center}
+#dash .dh3 .btn.add-rec{background:linear-gradient(135deg,color-mix(in srgb,var(--acc) 45%,#fff),var(--acc));color:#10303a;font-weight:700;border:1.5px solid #10303a;box-shadow:0 3px 0 #10303a;padding:9px 16px;border-radius:999px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+#dash .dh3 .btn.add-rec:hover{transform:translateY(-1px);box-shadow:0 4px 0 #10303a}
+#dash .dh3 .btn.add-rec:active{transform:translateY(2px);box-shadow:0 1px 0 #10303a}
+
+/* Data Table Toolbar, Search, Filter & Pagination */
+.tbl-controls{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.tbl-search{display:flex;align-items:center;gap:8px;flex:1 1 220px;min-width:180px}
+.tbl-search input,.mod-form input,.mod-form select,.mod-form textarea{
+  width:100%;padding:8px 12px;border-radius:12px;border:1.5px solid rgba(16,48,58,.25);
+  background:rgba(255,255,255,.8);color:#10303a;font-family:inherit;font-size:14px;
+  outline:none;transition:border-color .15s,box-shadow .15s;
+}
+.tbl-search input:focus,.mod-form input:focus,.mod-form select:focus,.mod-form textarea:focus{
+  border-color:#10303a;box-shadow:0 0 0 3px rgba(16,48,58,.1);
+}
+.tbl-filters{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tbl-filters select{
+  padding:8px 12px;border-radius:12px;border:1.5px solid rgba(16,48,58,.25);
+  background:rgba(255,255,255,.8);color:#10303a;font-family:inherit;font-size:13px;outline:none;cursor:pointer;
+}
+.tbl-footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;font-size:13px;color:#4a6570}
+.pg-btns{display:flex;align-items:center;gap:6px}
+.pg-btn{padding:6px 12px;border-radius:999px;border:1.5px solid #10303a;background:rgba(255,255,255,.8);color:#10303a;font-weight:600;font-size:12px;cursor:pointer;box-shadow:0 2px 0 #10303a}
+.pg-btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;transform:none}
+.pg-btn:not(:disabled):hover{transform:translateY(-1px);box-shadow:0 3px 0 #10303a}
+.pg-btn:not(:disabled):active{transform:translateY(1px);box-shadow:0 1px 0 #10303a}
+
+/* Row Action Buttons */
+.act-btn{
+  padding:3px 10px;border-radius:999px;border:1.5px solid #10303a;background:rgba(255,255,255,.85);
+  color:#10303a;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 2px 0 #10303a;margin-right:4px;
+}
+.act-btn:hover{transform:translateY(-1px);box-shadow:0 3px 0 #10303a}
+.act-btn:active{transform:translateY(1px);box-shadow:0 0 0 #10303a}
+.act-btn.del{border-color:#10303a;background:#fee2e2;color:#991b1b}
+
+/* Form Modals & Toast Notifications */
+.modal-overlay{
+  position:fixed;inset:0;z-index:2000;background:rgba(10,23,28,.45);
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  display:flex;align-items:center;justify-content:center;padding:16px;
+  opacity:0;pointer-events:none;transition:opacity .2s ease;
+}
+.modal-overlay.active{opacity:1;pointer-events:auto}
+.modal-card{
+  width:min(540px,100%);max-height:90vh;overflow-y:auto;
+  background:rgba(255,255,255,.92);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);
+  border:2px solid #10303a;border-radius:24px;padding:24px;
+  box-shadow:0 20px 60px rgba(16,48,58,.3),0 6px 0 #10303a;
+  transform:translateY(12px) scale(.98);transition:transform .2s ease;
+}
+.modal-overlay.active .modal-card{transform:none}
+.modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;border-bottom:1.5px solid rgba(16,48,58,.15);padding-bottom:12px}
+.modal-head h3{margin:0;font-size:22px;font-weight:800;letter-spacing:-.01em;color:#10303a}
+.modal-close{background:none;border:1.5px solid #10303a;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;display:grid;place-items:center;color:#10303a;box-shadow:0 2px 0 #10303a}
+.mod-form{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.mod-form .full{grid-column:1/-1}
+.f-group{display:flex;flex-direction:column;gap:5px}
+.f-group label{font-size:12px;font-weight:700;color:#10303a;text-transform:uppercase;letter-spacing:.03em}
+.f-err{font-size:11px;color:#dc2626;font-weight:600;display:none}
+.f-group.has-err input,.f-group.has-err select{border-color:#dc2626;background:#fef2f2}
+.f-group.has-err .f-err{display:block}
+.modal-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:10px;margin-top:10px;padding-top:14px;border-top:1.5px solid rgba(16,48,58,.15)}
+
+.toast{
+  position:fixed;bottom:24px;right:24px;z-index:3000;
+  background:#10303a;color:#fff;border:2px solid #10303a;
+  padding:12px 20px;border-radius:999px;font-weight:700;font-size:14px;
+  box-shadow:0 8px 24px rgba(0,0,0,.25),0 4px 0 var(--mint);
+  transform:translateY(100px);opacity:0;transition:all .3s cubic-bezier(.175,.885,.32,1.275);
+  display:flex;align-items:center;gap:8px;pointer-events:none;
+}
+.toast.active{transform:none;opacity:1}
+
+@media(max-width:640px){
+  #dash .dh3{align-items:flex-start}
+  #dash .dh3 .hr{width:100%;justify-content:flex-start}
+  .mod-form{grid-template-columns:1fr}
+  .tbl-controls{flex-direction:column;align-items:stretch}
+}
+
+</style>
+</head>
+<body>
+<div id="load">Loading the depot…</div>
+<header>
+<svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect width="30" height="30" rx="8" fill="#ffb000"/><path d="M6 20h13l3-7h3M8 20v3m10-3v3M6 20V9h12v11" stroke="#1b1400" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<b>FleetTrack</b><span>Operations hub</span>
+</header>
+<button id="back">Back to hub</button>
+<div id="hint">Drag to orbit, scroll to zoom, select a place to open it.</div>
+<aside id="panel" aria-live="polite"><button id="x" aria-label="Close panel">×</button><div id="pc"></div></aside>
+<div id="dash"></div>
+<svg id="conn" aria-hidden="true"><path id="ln"/><g id="cm"><circle class="pr" r="9"/><circle r="4"/></g></svg>
+
+<!-- Global Form Modal Container -->
+<div id="modal-overlay" class="modal-overlay" aria-hidden="true">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3 id="modal-title">Form Title</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<!-- Toast Notification -->
+<div id="toast" class="toast"><span>✓ Record saved successfully</span></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// Local/Temporary State Store for Databases
+const DB = {
+  fleet: [
+    { id: 'VAN-01', m: 'Isuzu NLR', p: 'ABC-1234', t: 'Van', b: 'Tagbilaran', s: '0' },
+    { id: 'VAN-02', m: 'Hino 300', p: 'DEF-5678', t: 'Van', b: 'Panglao', s: '1' },
+    { id: 'TRK-03', m: 'Fuso Canter', p: 'GHI-9012', t: 'Truck', b: 'Tagbilaran', s: '0' },
+    { id: 'VAN-04', m: 'Isuzu Elf', p: 'JKL-3456', t: 'Truck', b: 'Tubigon', s: '1' },
+    { id: 'VAN-05', m: 'Isuzu NLR', p: 'MNO-7890', t: 'Van', b: 'Tagbilaran', s: '0' },
+    { id: 'VAN-06', m: 'Hino 300', p: 'PQR-2345', t: 'Van', b: 'Panglao', s: '2' },
+    { id: 'VAN-07', m: 'Isuzu NLR', p: 'STU-6789', t: 'Van', b: 'Tagbilaran', s: '0' },
+    { id: 'TRK-08', m: 'Fuso Canter', p: 'VWX-0123', t: 'Truck', b: 'Tubigon', s: '1' },
+    { id: 'VAN-09', m: 'Isuzu Elf', p: 'YZA-4567', t: 'Truck', b: 'Panglao', s: '1' },
+    { id: 'VAN-10', m: 'Hino 300', p: 'BCD-8901', t: 'Van', b: 'Tagbilaran', s: '2' },
+    { id: 'VAN-11', m: 'Fuso Canter', p: 'EFG-2345', t: 'Van', b: 'Tagbilaran', s: '0' },
+    { id: 'TRK-12', m: 'Isuzu Elf', p: 'HIJ-6789', t: 'Truck', b: 'Tubigon', s: '1' }
+  ],
+  drivers: [
+    { id: 'DRV-01', name: 'M. Reyes', lic: 'N01-12-345678', phone: '09171234567', exp: '2027-03-15', status: 'On shift', vehicle: 'VAN-04', tripsToday: 3 },
+    { id: 'DRV-02', name: 'J. Dela Cruz', lic: 'N02-98-765432', phone: '09189876543', exp: '2026-12-20', status: 'Available', vehicle: '—', tripsToday: 0 },
+    { id: 'DRV-03', name: 'A. Ramos', lic: 'N01-45-678901', phone: '09205551234', exp: '2027-06-10', status: 'On shift', vehicle: 'VAN-06', tripsToday: 4 },
+    { id: 'DRV-04', name: 'L. Torres', lic: 'N03-11-223344', phone: '09194443322', exp: '2027-09-05', status: 'On shift', vehicle: 'VAN-07', tripsToday: 2 },
+    { id: 'DRV-05', name: 'K. Bautista', lic: 'N01-88-990011', phone: '09178889900', exp: '2028-01-18', status: 'Available', vehicle: '—', tripsToday: 0 },
+    { id: 'DRV-06', name: 'R. Salazar', lic: 'N02-33-445566', phone: '09221112233', exp: '2026-12-11', status: 'Off today', vehicle: '—', tripsToday: 0 },
+    { id: 'DRV-07', name: 'P. Gomez', lic: 'N01-77-665544', phone: '09183334455', exp: '2027-04-22', status: 'On shift', vehicle: 'VAN-10', tripsToday: 5 },
+    { id: 'DRV-08', name: 'D. Uy', lic: 'N03-55-443322', phone: '09206667788', exp: '2027-11-30', status: 'Available', vehicle: '—', tripsToday: 1 }
+  ],
+  trips: [
+    { id: 'TRIP-4471', vehicle: 'VAN-04', driver: 'M. Reyes', origin: 'Tagbilaran', dest: 'Panglao', datetime: '2026-10-31T11:20', status: 'On route' },
+    { id: 'TRIP-4472', vehicle: 'VAN-06', driver: 'A. Ramos', origin: 'Dauis', dest: 'Baclayon', datetime: '2026-10-31T11:45', status: 'On route' },
+    { id: 'TRIP-4469', vehicle: 'VAN-07', driver: 'L. Torres', origin: 'Loon', dest: 'Carmen', datetime: '2026-10-31T10:30', status: 'Delayed' },
+    { id: 'TRIP-4480', vehicle: 'VAN-02', driver: 'D. Uy', origin: 'Depot', dest: 'Jagna', datetime: '2026-10-31T13:30', status: 'Scheduled' },
+    { id: 'TRIP-4481', vehicle: 'VAN-05', driver: 'K. Bautista', origin: 'Depot', dest: 'Dauis', datetime: '2026-10-31T14:15', status: 'Scheduled' },
+    { id: 'TRIP-4475', vehicle: 'VAN-10', driver: 'P. Gomez', origin: 'Depot', dest: 'Tubigon', datetime: '2026-10-31T12:30', status: 'On route' }
+  ],
+  garage: [
+    { id: 'MNT-01', vehicle: 'VAN-18', type: 'Brake pads replacement', desc: 'Inspect and replace front brake pads', date: '2026-10-31', tech: 'Juan Repairs', cost: 4500, status: 'In bay', progress: 70 },
+    { id: 'MNT-02', vehicle: 'TRK-05', type: 'Oil change', desc: 'Full synthetic oil filter change', date: '2026-10-31', tech: 'Master Auto', cost: 3200, status: 'In bay', progress: 25 },
+    { id: 'MNT-03', vehicle: 'VAN-02', type: '10,000 km service', desc: 'Comprehensive multi-point inspection', date: '2026-11-03', tech: 'City Service', cost: 8500, status: 'Due', progress: 0 },
+    { id: 'MNT-04', vehicle: 'VAN-11', type: 'Inspection', desc: 'Annual safety inspection', date: '2026-11-05', tech: 'Safety First', cost: 1500, status: 'Scheduled', progress: 0 },
+    { id: 'MNT-05', vehicle: 'VAN-09', type: 'Tyre rotation', desc: 'Rotate and balance four tires', date: '2026-10-28', tech: 'Wheel Care', cost: 2200, status: 'Overdue', progress: 0 }
+  ],
+  fuel: [
+    { id: 'FUL-01', vehicle: 'VAN-07', driver: 'M. Reyes', date: '2026-10-31', liters: 42, price: 61.4, odo: 45210, station: 'Petron Tagbilaran', note: 'Normal' },
+    { id: 'FUL-02', vehicle: 'TRK-03', driver: 'A. Ramos', date: '2026-10-31', liters: 58, price: 61.4, odo: 89430, station: 'Shell Dauis', note: 'Normal' },
+    { id: 'FUL-03', vehicle: 'VAN-12', driver: 'K. Bautista', date: '2026-10-31', liters: 36, price: 61.4, odo: 31200, station: 'Phoenix Panglao', note: 'Normal' },
+    { id: 'FUL-04', vehicle: 'VAN-04', driver: 'L. Torres', date: '2026-10-31', liters: 51, price: 61.4, odo: 62110, station: 'Petron Tagbilaran', note: 'Attention (+22%)' },
+    { id: 'FUL-05', vehicle: 'TRK-05', driver: 'R. Salazar', date: '2026-10-31', liters: 64, price: 61.4, odo: 104200, station: 'Caltex Tubigon', note: 'Normal' },
+    { id: 'FUL-06', vehicle: 'VAN-09', driver: 'D. Uy', date: '2026-10-31', liters: 39, price: 61.4, odo: 28450, station: 'Seaoil Panglao', note: 'Receipt pending' }
+  ],
+  hq: [
+    { id: 'EMP-01', name: 'Maria Santos', username: 'msantos', role: 'Fleet Manager', branch: 'Tagbilaran', status: 'Active' },
+    { id: 'EMP-02', name: 'Carlos Ramos', username: 'cramos', role: 'Dispatcher', branch: 'Panglao', status: 'Active' },
+    { id: 'EMP-03', name: 'Elena Cruz', username: 'ecruz', role: 'Maintenance Lead', branch: 'Tagbilaran', status: 'Active' },
+    { id: 'EMP-04', name: 'Jorge Tan', username: 'jtan', role: 'Branch Supervisor', branch: 'Tubigon', status: 'On leave' }
+  ]
+};
+
+// Global Table Pagination State
+const TSTATE = {
+  fleet: { page: 1, limit: 10, search: '', filter: 'ALL' },
+  drivers: { page: 1, limit: 10, search: '', filter: 'ALL' },
+  trips: { page: 1, limit: 10, search: '', filter: 'ALL' },
+  garage: { page: 1, limit: 10, search: '', filter: 'ALL' },
+  fuel: { page: 1, limit: 10, search: '', filter: 'ALL' },
+  hq: { page: 1, limit: 10, search: '', filter: 'ALL' }
+};
+
+let activeModalModule = null;
+let editingRecordId = null;
+let isSubmitting = false;
+
+const MODS={
+fleet:{t:'Fleet parking',s:'Vehicles and where they stand right now',pin:['Fleet','9 available'],stats:[['Vehicles','24'],['Available','9'],['On trip','11'],['In service','4']],rows:[['VAN-07 · Isuzu NLR','Available','#10B981'],['VAN-12 · Hino 300','Assigned','#F5821F'],['TRK-03 · Fuso Canter','Available','#10B981'],['VAN-18 · Isuzu NLR','Needs service','#EF4444']],cta:'Open fleet dashboard'},
+drivers:{t:'Drivers',s:'Who is on shift and what they are driving',pin:['Drivers','16 on shift'],stats:[['Drivers','21'],['On shift','16'],['On trip','11'],['Off today','5']],rows:[['M. Reyes','VAN-12 · Trip 4471','#F5821F'],['J. Dela Cruz','Available','#10B981'],['A. Ramos','TRK-03 · Loading','#F5821F'],['L. Torres','Off today','#93aeb4']],cta:'Open driver list'},
+trips:{t:'Trips and dispatch',s:'Routes, assignments and trip status',pin:['Trips','11 active'],stats:[['Active','11'],['Scheduled','7'],['Delayed','2'],['Done today','38']],rows:[['Trip 4471 · Tagbilaran → Panglao','On route','#10B981'],['Trip 4472 · Dauis → Baclayon','On route','#10B981'],['Trip 4469 · Loon → Carmen','Delayed','#EF4444'],['Trip 4480 · Depot → Jagna','Scheduled','#93aeb4']],cta:'Open trip board'},
+garage:{t:'Maintenance garage',s:'Servicing, repairs and costs',pin:['Garage','4 in service'],stats:[['In bay','2'],['Due this week','5'],['Overdue','1'],['Month cost','₱86k']],rows:[['VAN-18 · Brake pads','In bay','#F5821F'],['TRK-05 · Oil change','In bay','#F5821F'],['VAN-02 · 10,000 km service','Due Tue','#93aeb4'],['VAN-09 · Tyre rotation','Overdue','#EF4444']],cta:'Open maintenance',alert:1},
+fuel:{t:'Fuel station',s:'Refuelling, consumption and expenses',pin:['Fuel','₱142k this month'],stats:[['Refuels today','9'],['Volume today','612 L'],['Avg economy','8.4 km/L'],['Monthly spend','₱142k']],rows:[['VAN-07 · 42 L','Normal','#10B981'],['TRK-03 · 58 L','Normal','#10B981'],['VAN-09 · 39 L','Pending','#F5821F'],['VAN-04 · +22% vs usual','Attention','#FFD100']],cta:'Open Full Dashboard',alert:1},
+hq:{t:'Operations building',s:'Reports, branches and settings',pin:['Operations','Reports and settings'],stats:[['Branches','3'],['On-time rate','94%'],['Open alerts','3'],['Reports','12']],rows:[['Weekly delivery summary','Ready','#10B981'],['Fleet cost report','Ready','#10B981'],['Branch: Tagbilaran','Active','#93aeb4'],['User access review','Due','#F5821F']],cta:'Open reports and settings'}};
+const ACC={fleet:'#10B981',drivers:'#3B82F6',trips:'#F5821F',garage:'#EF4444',fuel:'#FFD100',hq:'#A855F7'};
+const $=s=>document.querySelector(s);
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const scene=new THREE.Scene();scene.background=new THREE.Color(0xdbeaf0);
+const cam=new THREE.PerspectiveCamera(20,1,1,500);
+const rend=new THREE.WebGLRenderer({antialias:true});rend.setPixelRatio(Math.min(devicePixelRatio,2));rend.shadowMap.enabled=true;rend.shadowMap.type=THREE.PCFSoftShadowMap;
+document.body.prepend(rend.domElement);
+scene.add(new THREE.HemisphereLight(0xffffff,0xd4e4c8,1));
+const sun=new THREE.DirectionalLight(0xfff4e0,.65);sun.position.set(-24,38,16);sun.shadow.radius=4;sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);
+Object.assign(sun.shadow.camera,{left:-32,right:32,top:32,bottom:-32,near:1,far:90});scene.add(sun);
+const M=(c,o={})=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.9,flatShading:false},o));
+function box(w,h,d,c,x,y,z,p){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),M(c));m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;(p||scene).add(m);return m}
+const glass=(w,h,d,x,y,z,p)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshBasicMaterial({color:0x7fd6ff}));m.position.set(x,y,z);p.add(m)};
+const mods={},pickables=[];
+function mod(id,x,z){const g=new THREE.Group();g.position.set(x,0,z);g.userData.m=id;scene.add(g);mods[id]=g;return g}
+// ---- toy diorama ----
+const W=0xffffff,OR=0xF5821F,YL=0xFFD100,ASP=0x77716b,CRM=0xfbf8f1;
+function rg(w,h,d,r){r=Math.min(r,w/2-.02,d/2-.02);const x=-w/2,y=-d/2,s=new THREE.Shape();s.moveTo(x+r,y);s.lineTo(x+w-r,y);s.quadraticCurveTo(x+w,y,x+w,y+r);s.lineTo(x+w,y+d-r);s.quadraticCurveTo(x+w,y+d,x+w-r,y+d);s.lineTo(x+r,y+d);s.quadraticCurveTo(x,y+d,x,y+d-r);s.lineTo(x,y+r);s.quadraticCurveTo(x,y,x+r,y);const g=new THREE.ExtrudeGeometry(s,{depth:h,bevelEnabled:true,bevelSize:.05,bevelThickness:.05,bevelSegments:2,curveSegments:5});g.rotateX(-Math.PI/2);g.translate(0,-h/2,0);return g}
+function rbox(w,h,d,c,x,y,z,p,r){const m=new THREE.Mesh(rg(w,h,d,r==null?.25:r),M(c));m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;(p||scene).add(m);return m}
+const cyl=(r,h,c,x,y,z,p)=>{const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,14),M(c));m.position.set(x,y,z);m.castShadow=true;(p||scene).add(m);return m};
+rbox(56,1.2,56,CRM,0,-.9,0,null,1.5);rbox(56.4,.35,56.4,OR,0,-1.2,0,null,1.5);rbox(52,.6,52,0x8fc884,0,-.3,0,null,1.2).castShadow=false;
+rbox(8.8,.15,8.8,0xa9dc9a,0,.08,0,null,.9).castShadow=false;cyl(1.3,.5,W,0,.3,0);cyl(.9,.9,OR,0,.7,0);cyl(.1,3,W,0,2.2,0);const orb=new THREE.Mesh(new THREE.SphereGeometry(.4,12,10),M(YL));orb.position.set(0,3.8,0);scene.add(orb);
+// roads
+const roads=mod('trips',0,0),R=6,RW=2.6;
+[[0,-R,2*R+RW,RW],[0,R,2*R+RW,RW],[-R,0,RW,2*R+RW],[R,0,RW,2*R+RW]].forEach(([x,z,w,d])=>box(w,.14,d,ASP,x,.07,z,roads));
+[[1,1],[-1,1],[1,-1],[-1,-1]].forEach(([a,b])=>{const s=box(11,.14,RW,ASP,a*10,.07,b*10,roads);s.rotation.y=(a*b>0)?-Math.PI/4:Math.PI/4});
+function place(t,v){t=((t%48)+48)%48;const s=Math.floor(t/12),u=t%12-6;const p=[[u,-R],[R,u],[-u,R],[-R,-u]][s];v.position.set(p[0],.14,p[1]);v.rotation.y=[Math.PI/2,0,-Math.PI/2,Math.PI][s]}
+for(let t=1;t<48;t+=2){if(t%12>10||t%12<2)continue;const d=box(.16,.03,.9,W,0,0,0,roads);place(t,d);d.position.y=.16}
+function van(c,lamp){const g=new THREE.Group();rbox(1.2,1.1,2.2,c,0,.95,-.1,g,.3);rbox(1.15,.75,.9,c,0,.75,1.15,g,.25).material.color.offsetHSL(0,0,-.07);rbox(.5,.06,1.8,W,0,1.52,-.1,g,.05);glass(1.0,.35,.06,0,.98,1.62,g);
+[[-.62,.9],[.62,.9],[-.62,-.8],[.62,-.8]].forEach(([x,z])=>{const w=cyl(.3,.22,0x2d2d2d,x,.3,z,g);w.rotation.z=Math.PI/2});
+const l=new THREE.Mesh(new THREE.SphereGeometry(.14,8,8),new THREE.MeshBasicMaterial({color:lamp}));l.position.set(0,1.75,0);g.add(l);g.scale.setScalar(1.15);return g}
+const VC=[0xe5484d,0x3fae6a,YL,0x3b82f6],movers=[];
+[[0,.9,0xe5484d],[14,.7,YL],[26,1,0x3b82f6],[38,.8,0x3fae6a]].forEach(([t,sp,c])=>{const v=van(c,0xffb000);roads.add(v);movers.push({v,t,sp})});
+// parking
+const P=mod('fleet',-13,13);rbox(11,.25,8,0xd9d5ce,0,.12,0,P,.8);rbox(11.2,.12,8.2,W,0,.05,0,P,.8);
+const lamps=[0x5fd3b0,0xffb000,0x5fd3b0,0xffb000,0x5fd3b0,0xff5a3c,0xffb000,0x5fd3b0];
+for(let i=0;i<8;i++){const v=van(VC[i%4],lamps[i]);v.position.set(-4+(i%4)*2.7,.25,i<4?-2:2);v.rotation.y=i<4?Math.PI:0;P.add(v)}
+for(let r=0;r<2;r++)for(let i=0;i<5;i++)box(.1,.03,3.2,W,-5.4+i*2.7,.27,r?2:-2,P);
+// drivers
+function person(x,z,c){const g=new THREE.Group(),b=cyl(.24,.9,c,0,.65,0,g);const h=new THREE.Mesh(new THREE.SphereGeometry(.24,12,10),M(0xf2c9a0));h.position.y=1.32;h.castShadow=true;g.add(h);const hat=new THREE.Mesh(new THREE.SphereGeometry(.26,12,6,0,6.283,0,1.4),M(YL));hat.position.y=1.4;g.add(hat);g.scale.setScalar(1.4);g.position.set(x,.25,z);g.userData.m='drivers';scene.add(g);mods.drivers=mods.drivers||g;return g}
+const people=[person(-8,7.2,OR),person(-7.2,7.8,0x3b82f6),person(-17.8,8.5,OR),person(-9,-8,0x3fae6a),person(8.5,8.2,OR)];
+// garage
+const G=mod('garage',13,-13);rbox(9,.25,8,0xd9d5ce,0,.12,0,G,.8);rbox(9.2,.12,8.2,W,0,.05,0,G,.8);
+rbox(8,4.2,5,CRM,0,2.35,-1,G,.5);rbox(8.4,.4,5.4,W,0,.45,-1,G,.4);rbox(8.4,.45,5.4,OR,0,4.68,-1,G,.4);
+[-2,2].forEach(x=>{rbox(3,3.2,.2,W,x,1.85,1.55,G,.15);rbox(2.5,2.9,.12,OR,x,1.7,1.68,G,.1);for(let k=0;k<4;k++)box(2.4,.05,.05,0xc9600c,x,.7+k*.7,1.77,G)});
+rbox(3.4,.8,.15,YL,0,3.95,1.6,G,.12);[[-2.4,1.4],[2.4,1]].forEach(([x,s])=>{rbox(1.4*s,.7,1.2*s,0xdcdcdc,x,5.25,-1,G,.15);cyl(.4*s,.08,0x555555,x,5.65,-1,G)});
+const warn=new THREE.Mesh(new THREE.SphereGeometry(.28,10,10),new THREE.MeshBasicMaterial({color:0xff5a3c}));warn.position.set(0,5.4,-1);G.add(warn);
+const gv=van(YL,0xff5a3c);gv.position.set(-2,.25,3.5);gv.rotation.y=Math.PI;G.add(gv);
+// fuel
+const F=mod('fuel',13,13);rbox(10,.25,8,0xd9d5ce,0,.12,0,F,.8);rbox(10.2,.12,8.2,W,0,.05,0,F,.8);
+[-3.6,3.6].forEach(x=>[-1.5,1.5].forEach(z=>cyl(.18,4,W,x,2.25,z,F)));rbox(8.5,.2,4.5,OR,0,4.3,0,F,.4);rbox(8.2,.5,4.2,W,0,4.65,0,F,.4);
+[-1.8,1.8].forEach(x=>{rbox(.7,1.5,.7,W,x,1,0,F,.15);rbox(.72,.28,.72,OR,x,1.3,0,F,.12);rbox(.72,.3,.72,YL,x,1.9,0,F,.12)});
+rbox(3,2.4,2.4,CRM,-2.6,1.45,-2.9,F,.3);rbox(3.5,.3,2.9,OR,-2.6,2.75,-2.9,F,.3);cyl(.15,6,W,4.2,3.25,-2.8,F);rbox(1.3,1.2,.25,YL,4.2,6,-2.8,F,.2);
+const fv=van(0x3fae6a,0x5fd3b0);fv.position.set(0,.25,1.7);fv.rotation.y=Math.PI/2;F.add(fv);
+// hq
+const H=mod('hq',-13,-13);rbox(10,.25,8,0xd9d5ce,0,.12,0,H,.8);rbox(10.2,.12,8.2,W,0,.05,0,H,.8);
+rbox(5,10,5,CRM,-1.5,5.25,0,H,.6);rbox(5.4,.5,5.4,OR,-1.5,10.5,0,H,.6);rbox(5.3,.35,5.3,W,-1.5,5.4,0,H,.6);rbox(5.2,.4,5.2,W,-1.5,.5,0,H,.5);
+[2,4,6,8].forEach(y=>{glass(4.2,.65,.06,-1.5,y+.5,2.53,H);glass(.06,.65,4.2,1.03,y+.5,0,H)});
+rbox(4.5,3.5,4,CRM,3,2,.5,H,.5);rbox(4.9,.3,4.4,OR,3,3.9,.5,H,.4);glass(3.6,.9,.06,3,2.1,2.53,H);rbox(2,.2,1.4,OR,3,2.9,3.1,H,.15);
+rbox(1.4,.7,1.4,0xdcdcdc,-2.7,11.1,-.9,H,.15);cyl(.07,2,W,-.6,11.5,.8,H);
+const bc=new THREE.Mesh(new THREE.SphereGeometry(.22,8,8),new THREE.MeshBasicMaterial({color:YL}));bc.position.set(-.6,12.6,.8);H.add(bc);
+// trees
+const TG=[0x2e7d4f,0x2f8f83,0x3f9a5a,0x1f6a4a];
+function tree(x,z,s,i){const g=new THREE.Group();cyl(.25,1.2,0x7a5a3a,0,.6,0,g);[[0,2.5,0,1.5],[.5,3.5,.2,1.1]].forEach(([a,b,c,r])=>{const m=new THREE.Mesh(new THREE.SphereGeometry(r,12,10),M(TG[i%4]));m.position.set(a,b,c);m.castShadow=true;g.add(m)});g.position.set(x,0,z);g.scale.setScalar(s);scene.add(g)}
+for(let i=0;i<40;i++){const u=i/10,sd=Math.floor(u),f=u%1,fr=sd==1||sd==2;if(fr&&i%2)continue;const q=[[-23+46*f,-23],[23,-23+46*f],[23-46*f,23],[-23,23-46*f]][sd];tree(q[0],q[1],fr?.8:1.1,i)}
+[[-20,-2],[-3,-21],[20,-3],[-21,3]].forEach(([x,z],i)=>tree(x,z,.9,i+1));
+// pin anchors
+const anchors={fleet:[-13,3.5,13],drivers:[-8,2.6,7.5],trips:[0,2,-R],garage:[13,6.5,-13],fuel:[13,5.5,13],hq:[-14.5,14,-13]};
+const pins={};Object.keys(MODS).forEach(id=>{const m=MODS[id],b=document.createElement('button');b.className='pin'+(m.alert?' alert':'');b.innerHTML=`<b>${m.pin[0]}</b><span>${m.pin[1]}</span>`;b.onclick=()=>focus(id);b.onmouseenter=()=>hover(id);b.onmouseleave=()=>hover(null);b.style.borderLeft='4px solid '+ACC[id];document.body.appendChild(b);pins[id]=b});
+// camera state
+const HUB={tx:0,ty:0,tz:0,r:100,th:.785,ph:1.0},g=Object.assign({},HUB),c=Object.assign({},HUB);
+const FOC={fleet:[-13,13],drivers:[-8,7.5],trips:[0,0],garage:[13,-13],fuel:[13,13],hq:[-13,-13]};
+let cur=null;
+function focus(id){cur=id;const f=FOC[id];Object.assign(g,{tx:f[0],ty:0,tz:f[1],r:id==='trips'?64:id==='drivers'?30:42,ph:.95});if(reduce)Object.assign(c,g);
+ const m=MODS[id];$('#panel').style.setProperty('--acc',ACC[id]);$('#pc').innerHTML=`<div class="dhead">${ico(id)}<div><h2>${m.t}</h2><p class="sub">${m.s}</p></div></div><div class="kp">${m.stats.map(x=>`<div class="kc"><b>${x[1]}</b><span>${x[0]}</span></div>`).join('')}</div><h3 class="rh">Recent records</h3><ul>${m.rows.map(r=>`<li>${r[0]}<em>${pill(r[1],r[2])}</em></li>`).join('')}</ul><button class="open-btn" onclick="location.hash='${id}'">Open Full Dashboard</button><p class="note">Opens the full 2D workspace.</p>`;
+ $('#panel').classList.add('open');$('#back').style.display='block';setRing();Object.entries(pins).forEach(([k,b])=>b.classList.toggle('on',k===id))}
+function home(){cur=null;Object.assign(g,{tx:0,ty:0,tz:0,r:HUB.r,ph:HUB.ph});if(reduce)Object.assign(c,g);$('#panel').classList.remove('open');$('#back').style.display='none';setRing();Object.values(pins).forEach(b=>b.classList.remove('on'))}
+$('#back').onclick=home;$('#x').onclick=home;addEventListener('keydown',e=>{if(e.key==='Escape')home()});
+// hover + pick
+const ray=new THREE.Raycaster(),mp=new THREE.Vector2();let hov=null;
+function hover(id){if(hov===id)return;hov=id;Object.entries(mods).forEach(([k,grp])=>{const on=k===id;grp.traverse(o=>{if(o.material&&o.material.emissive)o.material.emissive.setHex(on?0x6b3f00:0)})});
+ if(id==='drivers')people.forEach(p=>p.traverse(o=>{if(o.material&&o.material.emissive)o.material.emissive.setHex(0x6b3f00)}));rend.domElement.style.cursor=id?'pointer':'grab';setRing(id)}
+function pick(e){mp.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight)*2+1);ray.setFromCamera(mp,cam);
+ const hit=ray.intersectObjects(scene.children,true).find(h=>{let o=h.object;while(o){if(o.userData.m)return true;o=o.parent}return false});
+ if(!hit)return null;let o=hit.object;while(!o.userData.m)o=o.parent;return o.userData.m}
+let drag=null;const cv=rend.domElement;
+cv.onpointerdown=e=>{drag={x:e.clientX,y:e.clientY,moved:0};cv.setPointerCapture(e.pointerId)};
+cv.onpointermove=e=>{if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.moved+=Math.abs(dx)+Math.abs(dy);drag.x=e.clientX;drag.y=e.clientY;g.th-=dx*.006;g.ph=Math.min(1.35,Math.max(.35,g.ph-dy*.005))}else hover(pick(e))};
+cv.onpointerup=e=>{if(drag&&drag.moved<6){const id=pick(e);if(id)focus(id)}drag=null};
+cv.onwheel=e=>{e.preventDefault();g.r=Math.min(150,Math.max(20,g.r*(1+e.deltaY*.001)))};
+function size(){rend.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();if(innerWidth<640){HUB.r=135;if(!cur)g.r=135}}
+addEventListener('resize',size);size();home();Object.assign(c,g);c.r=150;
+const clock=new THREE.Clock(),v3=new THREE.Vector3();let first=true;
+function loop(){if(DASH){if(!dd){dd=1;rend.render(scene,cam)}requestAnimationFrame(loop);clock.getDelta();return}const dt=Math.min(clock.getDelta(),.05),k=reduce?1:1-Math.exp(-dt*4.5);
+ for(const key in g)c[key]+=(g[key]-c[key])*k;
+ cam.position.set(c.tx+c.r*Math.sin(c.ph)*Math.sin(c.th),c.ty+c.r*Math.cos(c.ph),c.tz+c.r*Math.sin(c.ph)*Math.cos(c.th));cam.lookAt(c.tx,c.ty,c.tz);
+ if(!reduce){movers.forEach(m=>{m.t+=m.sp*dt;place(m.t,m.v)});warn.visible=Math.floor(clock.elapsedTime*2)%2===0;bc.visible=Math.floor(clock.elapsedTime)%2===0}else movers.forEach(m=>place(m.t,m.v));
+ for(const id in anchors){v3.set(...anchors[id]).project(cam);const b=pins[id];b.style.left=((v3.x+1)/2*innerWidth)+'px';b.style.top=((1-v3.y)/2*innerHeight)+'px';b.style.opacity=v3.z<1?1:0}
+ conn();rend.render(scene,cam);
+ if(first){first=false;const l=$('#load');l.style.opacity=0;setTimeout(()=>l.remove(),600)}
+ requestAnimationFrame(loop)}
+let DASH=false,last=null,fl=-1,dd=0;
+var rings={};
+function setRing(h){for(const k in rings)rings[k].visible=(k===h||k===cur)}
+[['fleet',-13,13,11,8],['garage',13,-13,9,8],['fuel',13,13,10,8],['hq',-13,-13,10,8],['trips',0,0,15.2,15.2]].forEach(([id,x,z,w,d])=>{const r=new THREE.Group(),m=new THREE.MeshBasicMaterial({color:ACC[id]});[[w,.06,.22,0,-d/2],[w,.06,.22,0,d/2],[.22,.06,d,-w/2,0],[.22,.06,d,w/2,0]].forEach(([a,b,c2,px,pz])=>{const s=new THREE.Mesh(new THREE.BoxGeometry(a,b,c2),m);s.position.set(px,.2,pz);r.add(s)});r.position.set(x,0,z);r.visible=false;scene.add(r);rings[id]=r});
+
+// Helper Utilities
+const pill=(t,c)=>`<span class="pill" style="--c:${c}">${t}</span>`;
+const ICON={fuel:'<path d="M5 20V5a1 1 0 011-1h7a1 1 0 011 1v15M4 20h11M14 9h2.5a1.5 1.5 0 011.5 1.5V16a1.5 1.5 0 003 0V9l-2-2M7 8h5"/>',garage:'<path d="M14.7 6.3a4 4 0 00-5.4 5L4 16.6 7.4 20l5.3-5.3a4 4 0 005-5.4l-2.4 2.4-2.3-.6-.6-2.3z"/>',fleet:'<path d="M3 16V7h11v9M14 10h4l3 3v3h-3M3 16h2m10 0h-2"/><circle cx="7" cy="17" r="1.8"/><circle cx="17" cy="17" r="1.8"/>',drivers:'<circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0114 0"/>',trips:'<path d="M12 21s6-5.5 6-10a6 6 0 10-12 0c0 4.5 6 10 6 10z"/><circle cx="12" cy="11" r="2.2"/>',hq:'<path d="M4 20V8l8-4 8 4v12M9 20v-6h6v6"/>'};
+function ico(id){return `<span class="ico" style="color:${id=='fuel'||id=='trips'?'#10232a':'#fff'}"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[id]}</svg></span>`}
+
+function bg(){
+  let x=0,r='';const w=[70,50,90,60,80,55,100,65,75,50,85,60,95,55,70,80],h=[150,220,120,260,180,140,230,160,200,130,250,170,210,150,190,240],c=['#cfe2ee','#c3d9e8','#d8e8f1'];
+  w.forEach((a,i)=>{r+=`<rect x="${x}" y="${400-h[i]}" width="${a}" height="${h[i]}" rx="6" fill="${c[i%3]}"/>`;x+=a+8});
+  return `<svg viewBox="0 0 ${x} 400" preserveAspectRatio="xMidYMax slice">${r}</svg>`;
+}
+
+function showToast(msg){
+  const t = $('#toast');
+  t.innerHTML = `<span>✓ ${msg}</span>`;
+  t.classList.add('active');
+  setTimeout(()=> t.classList.remove('active'), 3200);
+}
+
+// Modal Form Controllers
+function openAddForm(modKey, editId = null) {
+  activeModalModule = modKey;
+  editingRecordId = editId;
+  const overlay = $('#modal-overlay');
+  const title = $('#modal-title');
+  const body = $('#modal-body');
+
+  const isEdit = !!editId;
+  let rec = isEdit ? DB[modKey].find(x => x.id === editId) : {};
+
+  title.innerText = (isEdit ? 'Edit Record' : '+ Add Record') + ' - ' + MODS[modKey].t;
+
+  let fieldsHtml = '';
+
+  if (modKey === 'fleet') {
+    fieldsHtml = `
+      <form id="mod-form" class="mod-form" onsubmit="handleFormSubmit(event)">
+        <div class="f-group">
+          <label>Vehicle ID *</label>
+          <input type="text" id="f-id" value="${rec.id || ''}" ${isEdit?'readonly':''} required placeholder="e.g. VAN-13">
+          <span class="f-err">Vehicle ID is required</span>
+        </div>
+        <div class="f-group">
+          <label>Make & Model *</label>
+          <input type="text" id="f-m" value="${rec.m || ''}" required placeholder="e.g. Isuzu NLR">
+          <span class="f-err">Make & model is required</span>
+        </div>
+        <div class="f-group">
+          <label>Plate Number *</label>
+          <input type="text" id="f-p" value="${rec.p || ''}" required placeholder="e.g. ABC-1234">
+          <span class="f-err">Plate number is required</span>
+        </div>
+        <div class="f-group">
+          <label>Vehicle Type *</label>
+          <select id="f-t" required>
+            <option value="Van" ${rec.t==='Van'?'selected':''}>Van</option>
+            <option value="Truck" ${rec.t==='Truck'?'selected':''}>Truck</option>
+          </select>
+        </div>
+        <div class="f-group">
+          <label>Branch *</label>
+          <select id="f-b" required>
+            <option value="Tagbilaran" ${rec.b==='Tagbilaran'?'selected':''}>Tagbilaran</option>
+            <option value="Panglao" ${rec.b==='Panglao'?'selected':''}>Panglao</option>
+            <option value="Tubigon" ${rec.b==='Tubigon'?'selected':''}>Tubigon</option>
+          </select>
+        </div>
+        <div class="f-group">
+          <label>Current Status *</label>
+          <select id="f-s" required>
+            <option value="0" ${rec.s==='0'?'selected':''}>Available</option>
+            <option value="1" ${rec.s==='1'?'selected':''}>On trip</option>
+            <option value="2" ${rec.s==='2'?'selected':''}>In service</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+          <button type="submit" id="form-save-btn" class="btn p">Save Record</button>
+        </div>
+      </form>`;
+  } else if (modKey === 'drivers') {
+    fieldsHtml = `
+      <form id="mod-form" class="mod-form" onsubmit="handleFormSubmit(event)">
+        <div class="f-group">
+          <label>Full Name *</label>
+          <input type="text" id="f-name" value="${rec.name || ''}" required placeholder="e.g. Juan Dela Cruz">
+          <span class="f-err">Full name is required</span>
+        </div>
+        <div class="f-group">
+          <label>License Number *</label>
+          <input type="text" id="f-lic" value="${rec.lic || ''}" required placeholder="e.g. N01-12-345678">
+          <span class="f-err">License number is required</span>
+        </div>
+        <div class="f-group">
+          <label>Contact Number *</label>
+          <input type="tel" id="f-phone" value="${rec.phone || ''}" required placeholder="e.g. 09171234567">
+          <span class="f-err">Contact number is required</span>
+        </div>
+        <div class="f-group">
+          <label>License Expiry Date *</label>
+          <input type="date" id="f-exp" value="${rec.exp || ''}" required>
+          <span class="f-err">Expiry date is required</span>
+        </div>
+        <div class="f-group full">
+          <label>Employment Status *</label>
+          <select id="f-status" required>
+            <option value="Available" ${rec.status==='Available'?'selected':''}>Available</option>
+            <option value="On shift" ${rec.status==='On shift'?'selected':''}>On shift</option>
+            <option value="Off today" ${rec.status==='Off today'?'selected':''}>Off today</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+          <button type="submit" id="form-save-btn" class="btn p">Save Record</button>
+        </div>
+      </form>`;
+  } else if (modKey === 'trips') {
+    fieldsHtml = `
+      <form id="mod-form" class="mod-form" onsubmit="handleFormSubmit(event)">
+        <div class="f-group">
+          <label>Trip ID *</label>
+          <input type="text" id="f-id" value="${rec.id || 'TRIP-' + Math.floor(1000 + Math.random() * 9000)}" ${isEdit?'readonly':''} required>
+        </div>
+        <div class="f-group">
+          <label>Assigned Vehicle *</label>
+          <select id="f-vehicle" required>
+            ${DB.fleet.map(v => `<option value="${v.id}" ${rec.vehicle===v.id?'selected':''}>${v.id} (${v.m})</option>`).join('')}
+          </select>
+        </div>
+        <div class="f-group">
+          <label>Assigned Driver *</label>
+          <select id="f-driver" required>
+            ${DB.drivers.map(d => `<option value="${d.name}" ${rec.driver===d.name?'selected':''}>${d.name}</option>`).join('')}
+          </select>
+        </div>
+        <div class="f-group">
+          <label>Origin *</label>
+          <input type="text" id="f-origin" value="${rec.origin || ''}" required placeholder="e.g. Depot">
+        </div>
+        <div class="f-group">
+          <label>Destination *</label>
+          <input type="text" id="f-dest" value="${rec.dest || ''}" required placeholder="e.g. Panglao">
+        </div>
+        <div class="f-group">
+          <label>Scheduled Date & Time *</label>
+          <input type="datetime-local" id="f-datetime" value="${rec.datetime || ''}" required>
+        </div>
+        <div class="f-group full">
+          <label>Trip Status *</label>
+          <select id="f-status" required>
+            <option value="Scheduled" ${rec.status==='Scheduled'?'selected':''}>Scheduled</option>
+            <option value="On route" ${rec.status==='On route'?'selected':''}>On route</option>
+            <option value="Delayed" ${rec.status==='Delayed'?'selected':''}>Delayed</option>
+            <option value="Completed" ${rec.status==='Completed'?'selected':''}>Completed</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+          <button type="submit" id="form-save-btn" class="btn p">Save Record</button>
+        </div>
+      </form>`;
+  } else if (modKey === 'garage') {
+    fieldsHtml = `
+      <form id="mod-form" class="mod-form" onsubmit="handleFormSubmit(event)">
+        <div class="f-group">
+          <label>Vehicle *</label>
+          <select id="f-vehicle" required>
+            ${DB.fleet.map(v => `<option value="${v.id}" ${rec.vehicle===v.id?'selected':''}>${v.id}</option>`).join('')}
+          </select>
+        </div>
+        <div class="f-group">
+          <label>Maintenance Type *</label>
+          <input type="text" id="f-type" value="${rec.type || ''}" required placeholder="e.g. Oil Change">
+        </div>
+        <div class="f-group full">
+          <label>Description of Work</label>
+          <textarea id="f-desc" rows="2">${rec.desc || ''}</textarea>
+        </div>
+        <div class="f-group">
+          <label>Service Date *</label>
+          <input type="date" id="f-date" value="${rec.date || ''}" required>
+        </div>
+        <div class="f-group">
+          <label>Assigned Technician *</label>
+          <input type="text" id="f-tech" value="${rec.tech || ''}" required placeholder="e.g. AutoWorks">
+        </div>
+        <div class="f-group">
+          <label>Estimated Cost (₱) *</label>
+          <input type="number" id="f-cost" value="${rec.cost || ''}" required min="0" step="100">
+        </div>
+        <div class="f-group">
+          <label>Status *</label>
+          <select id="f-status" required>
+            <option value="Scheduled" ${rec.status==='Scheduled'?'selected':''}>Scheduled</option>
+            <option value="In bay" ${rec.status==='In bay'?'selected':''}>In bay</option>
+            <option value="Due" ${rec.status==='Due'?'selected':''}>Due</option>
+            <option value="Overdue" ${rec.status==='Overdue'?'selected':''}>Overdue</option>
+            <option value="Completed" ${rec.status==='Completed'?'selected':''}>Completed</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+          <button type="submit" id="form-save-btn" class="btn p">Save Record</button>
+        </div>
+      </form>`;
+  } else if (modKey === 'fuel') {
+    fieldsHtml = `
+      <form id="mod-form" class="mod-form" onsubmit="handleFormSubmit(event)">
+        <div class="f-group">
+          <label>Vehicle *</label>
+          <select id="f-vehicle" required>
+            ${DB.fleet.map(v => `<option value="${v.id}" ${rec.vehicle===v.id?'selected':''}>${v.id}</option>`).join('')}
+          </select>
+        </div>
+        <div class="f-group">
+          <label>Driver *</label>
+          <select id="f-driver" required>
+            ${DB.drivers.map(d => `<option value="${d.name}" ${rec.driver===d.name?'selected':''}>${d.name}</option>`).join('')}
+          </select>
+        </div>
+        <div class="f-group">
+          <label>Fuel Date *</label>
+          <input type="date" id="f-date" value="${rec.date || ''}" required>
+        </div>
+        <div class="f-group">
+          <label>Liters *</label>
+          <input type="number" id="f-liters" value="${rec.liters || ''}" required min="1" step="0.1">
+        </div>
+        <div class="f-group">
+          <label>Price Per Liter (₱) *</label>
+          <input type="number" id="f-price" value="${rec.price || '61.40'}" required step="0.01">
+        </div>
+        <div class="f-group">
+          <label>Odometer Reading (km) *</label>
+          <input type="number" id="f-odo" value="${rec.odo || ''}" required>
+        </div>
+        <div class="f-group full">
+          <label>Fuel Station *</label>
+          <input type="text" id="f-station" value="${rec.station || ''}" required placeholder="e.g. Shell Tagbilaran">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+          <button type="submit" id="form-save-btn" class="btn p">Save Record</button>
+        </div>
+      </form>`;
+  } else if (modKey === 'hq') {
+    fieldsHtml = `
+      <form id="mod-form" class="mod-form" onsubmit="handleFormSubmit(event)">
+        <div class="f-group">
+          <label>Employee Name *</label>
+          <input type="text" id="f-name" value="${rec.name || ''}" required placeholder="e.g. Maria Santos">
+        </div>
+        <div class="f-group">
+          <label>Username *</label>
+          <input type="text" id="f-username" value="${rec.username || ''}" required placeholder="e.g. msantos">
+        </div>
+        <div class="f-group">
+          <label>Role *</label>
+          <input type="text" id="f-role" value="${rec.role || ''}" required placeholder="e.g. Dispatcher">
+        </div>
+        <div class="f-group">
+          <label>Branch *</label>
+          <select id="f-branch" required>
+            <option value="Tagbilaran" ${rec.branch==='Tagbilaran'?'selected':''}>Tagbilaran</option>
+            <option value="Panglao" ${rec.branch==='Panglao'?'selected':''}>Panglao</option>
+            <option value="Tubigon" ${rec.branch==='Tubigon'?'selected':''}>Tubigon</option>
+          </select>
+        </div>
+        <div class="f-group full">
+          <label>Employment Status *</label>
+          <select id="f-status" required>
+            <option value="Active" ${rec.status==='Active'?'selected':''}>Active</option>
+            <option value="On leave" ${rec.status==='On leave'?'selected':''}>On leave</option>
+            <option value="Inactive" ${rec.status==='Inactive'?'selected':''}>Inactive</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+          <button type="submit" id="form-save-btn" class="btn p">Save Record</button>
+        </div>
+      </form>`;
+  }
+
+  body.innerHTML = fieldsHtml;
+  overlay.classList.add('active');
+  overlay.setAttribute('aria-hidden', 'false');
+}
+
+function closeModal() {
+  const overlay = $('#modal-overlay');
+  overlay.classList.remove('active');
+  overlay.setAttribute('aria-hidden', 'true');
+  activeModalModule = null;
+  editingRecordId = null;
+  isSubmitting = false;
+}
+
+function handleFormSubmit(e) {
+  e.preventDefault();
+  if (isSubmitting) return;
+  isSubmitting = true;
+
+  const btn = $('#form-save-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = 'Saving…';
+  }
+
+  setTimeout(() => {
+    const modKey = activeModalModule;
+    if (modKey === 'fleet') {
+      const id = $('#f-id').value.trim();
+      const m = $('#f-m').value.trim();
+      const p = $('#f-p').value.trim();
+      const t = $('#f-t').value;
+      const b = $('#f-b').value;
+      const s = $('#f-s').value;
+
+      if (editingRecordId) {
+        const item = DB.fleet.find(x => x.id === editingRecordId);
+        if (item) Object.assign(item, { m, p, t, b, s });
+      } else {
+        DB.fleet.unshift({ id, m, p, t, b, s });
+      }
+    } else if (modKey === 'drivers') {
+      const name = $('#f-name').value.trim();
+      const lic = $('#f-lic').value.trim();
+      const phone = $('#f-phone').value.trim();
+      const exp = $('#f-exp').value;
+      const status = $('#f-status').value;
+
+      if (editingRecordId) {
+        const item = DB.drivers.find(x => x.id === editingRecordId);
+        if (item) Object.assign(item, { name, lic, phone, exp, status });
+      } else {
+        const newId = 'DRV-' + String(DB.drivers.length + 1).padStart(2, '0');
+        DB.drivers.unshift({ id: newId, name, lic, phone, exp, status, vehicle: '—', tripsToday: 0 });
+      }
+    } else if (modKey === 'trips') {
+      const id = $('#f-id').value.trim();
+      const vehicle = $('#f-vehicle').value;
+      const driver = $('#f-driver').value;
+      const origin = $('#f-origin').value.trim();
+      const dest = $('#f-dest').value.trim();
+      const datetime = $('#f-datetime').value;
+      const status = $('#f-status').value;
+
+      if (editingRecordId) {
+        const item = DB.trips.find(x => x.id === editingRecordId);
+        if (item) Object.assign(item, { vehicle, driver, origin, dest, datetime, status });
+      } else {
+        DB.trips.unshift({ id, vehicle, driver, origin, dest, datetime, status });
+      }
+    } else if (modKey === 'garage') {
+      const vehicle = $('#f-vehicle').value;
+      const type = $('#f-type').value.trim();
+      const desc = $('#f-desc').value.trim();
+      const date = $('#f-date').value;
+      const tech = $('#f-tech').value.trim();
+      const cost = parseFloat($('#f-cost').value) || 0;
+      const status = $('#f-status').value;
+
+      if (editingRecordId) {
+        const item = DB.garage.find(x => x.id === editingRecordId);
+        if (item) Object.assign(item, { vehicle, type, desc, date, tech, cost, status });
+      } else {
+        const newId = 'MNT-' + String(DB.garage.length + 1).padStart(2, '0');
+        DB.garage.unshift({ id: newId, vehicle, type, desc, date, tech, cost, status, progress: 0 });
+      }
+    } else if (modKey === 'fuel') {
+      const vehicle = $('#f-vehicle').value;
+      const driver = $('#f-driver').value;
+      const date = $('#f-date').value;
+      const liters = parseFloat($('#f-liters').value) || 0;
+      const price = parseFloat($('#f-price').value) || 61.4;
+      const odo = parseInt($('#f-odo').value) || 0;
+      const station = $('#f-station').value.trim();
+
+      if (editingRecordId) {
+        const item = DB.fuel.find(x => x.id === editingRecordId);
+        if (item) Object.assign(item, { vehicle, driver, date, liters, price, odo, station });
+      } else {
+        const newId = 'FUL-' + String(DB.fuel.length + 1).padStart(2, '0');
+        DB.fuel.unshift({ id: newId, vehicle, driver, date, liters, price, odo, station, note: 'Normal' });
+      }
+    } else if (modKey === 'hq') {
+      const name = $('#f-name').value.trim();
+      const username = $('#f-username').value.trim();
+      const role = $('#f-role').value.trim();
+      const branch = $('#f-branch').value;
+      const status = $('#f-status').value;
+
+      if (editingRecordId) {
+        const item = DB.hq.find(x => x.id === editingRecordId);
+        if (item) Object.assign(item, { name, username, role, branch, status });
+      } else {
+        const newId = 'EMP-' + String(DB.hq.length + 1).padStart(2, '0');
+        DB.hq.unshift({ id: newId, name, username, role, branch, status });
+      }
+    }
+
+    closeModal();
+    showToast('Record ' + (editingRecordId ? 'updated' : 'added') + ' successfully');
+    route();
+  }, 350);
+}
+
+function deleteRecord(modKey, id) {
+  if (confirm(`Are you sure you want to delete record ${id}?`)) {
+    DB[modKey] = DB[modKey].filter(x => x.id !== id);
+    showToast(`Record ${id} deleted`);
+    route();
+  }
+}
+
+function viewRecordDetails(modKey, id) {
+  const rec = DB[modKey].find(x => x.id === id);
+  if (!rec) return;
+
+  const overlay = $('#modal-overlay');
+  $('#modal-title').innerText = `View Record (${id})`;
+
+  let details = '<div style="display:grid;gap:8px;font-size:14px;">';
+  Object.entries(rec).forEach(([k, v]) => {
+    details += `<div><strong style="text-transform:capitalize">${k}:</strong> ${v}</div>`;
+  });
+  details += '</div><div class="modal-actions"><button type="button" class="btn p" onclick="closeModal()">Close</button></div>';
+
+  $('#modal-body').innerHTML = details;
+  overlay.classList.add('active');
+}
+
+// Filter, Search and Pagination Helpers
+function filterDataset(modKey) {
+  const st = TSTATE[modKey];
+  let data = DB[modKey] || [];
+
+  if (st.search) {
+    const q = st.search.toLowerCase();
+    data = data.filter(item => Object.values(item).some(val => String(val).toLowerCase().includes(q)));
+  }
+
+  if (st.filter && st.filter !== 'ALL') {
+    data = data.filter(item => {
+      if (item.s !== undefined) return item.s === st.filter;
+      if (item.status !== undefined) return item.status === st.filter;
+      if (item.branch !== undefined) return item.branch === st.filter;
+      return true;
+    });
+  }
+
+  return data;
+}
+
+function renderTablePaginationControls(modKey, totalRecords) {
+  const st = TSTATE[modKey];
+  const totalPages = Math.max(1, Math.ceil(totalRecords / st.limit));
+  st.page = Math.min(st.page, totalPages);
+
+  const start = totalRecords === 0 ? 0 : (st.page - 1) * st.limit + 1;
+  const end = Math.min(totalRecords, st.page * st.limit);
+
+  return `
+    <div class="tbl-footer">
+      <div>Showing <strong>${start}–${end}</strong> of <strong>${totalRecords}</strong> matching records</div>
+      <div class="pg-btns">
+        <button class="pg-btn" ${st.page <= 1 ? 'disabled' : ''} onclick="TSTATE['${modKey}'].page--;route()">← Prev</button>
+        <span>Page ${st.page} of ${totalPages}</span>
+        <button class="pg-btn" ${st.page >= totalPages ? 'disabled' : ''} onclick="TSTATE['${modKey}'].page++;route()">Next →</button>
+      </div>
+    </div>`;
+}
+
+// KPI Calculators
+function getModuleKPIs(id) {
+  if (id === 'fleet') {
+    const total = DB.fleet.length;
+    const avail = DB.fleet.filter(x => x.s === '0').length;
+    const trip = DB.fleet.filter(x => x.s === '1').length;
+    const service = DB.fleet.filter(x => x.s === '2').length;
+    return [
+      ['Total vehicles', total],
+      ['Available', avail, `${Math.round((avail/total||0)*100)}% ready`, '#047857'],
+      ['On trip', trip],
+      ['In service', service]
+    ];
+  } else if (id === 'drivers') {
+    const total = DB.drivers.length;
+    const shift = DB.drivers.filter(x => x.status === 'On shift').length;
+    const avail = DB.drivers.filter(x => x.status === 'Available').length;
+    const off = DB.drivers.filter(x => x.status === 'Off today').length;
+    return [
+      ['Total Drivers', total],
+      ['On shift', shift],
+      ['Available', avail],
+      ['Off today', off]
+    ];
+  } else if (id === 'trips') {
+    const active = DB.trips.filter(x => x.status === 'On route').length;
+    const sched = DB.trips.filter(x => x.status === 'Scheduled').length;
+    const delay = DB.trips.filter(x => x.status === 'Delayed').length;
+    const comp = DB.trips.filter(x => x.status === 'Completed').length;
+    return [
+      ['Active Trips', active],
+      ['Scheduled', sched],
+      ['Delayed', delay, delay > 0 ? 'Requires attention' : 'On schedule', delay > 0 ? '#b91c1c' : '#047857'],
+      ['Completed', comp]
+    ];
+  } else if (id === 'garage') {
+    const bay = DB.garage.filter(x => x.status === 'In bay').length;
+    const due = DB.garage.filter(x => x.status === 'Due' || x.status === 'Scheduled').length;
+    const overdue = DB.garage.filter(x => x.status === 'Overdue').length;
+    const totalCost = DB.garage.reduce((acc, curr) => acc + (curr.cost || 0), 0);
+    return [
+      ['In bay', bay],
+      ['Pending / Due', due],
+      ['Overdue', overdue, overdue > 0 ? 'High priority' : 'All clear', overdue > 0 ? '#b91c1c' : '#047857'],
+      ['Total Cost', `₱${Math.round(totalCost/1000)}k`]
+    ];
+  } else if (id === 'fuel') {
+    const refuels = DB.fuel.length;
+    const volume = DB.fuel.reduce((acc, c) => acc + (c.liters || 0), 0);
+    const spend = DB.fuel.reduce((acc, c) => acc + ((c.liters || 0) * (c.price || 61.4)), 0);
+    return [
+      ['Total Refuels', refuels],
+      ['Volume Total', `${Math.round(volume)} L`],
+      ['Avg Economy', '8.4 km/L'],
+      ['Total Spend', `₱${Math.round(spend/1000)}k`]
+    ];
+  } else if (id === 'hq') {
+    const emp = DB.hq.length;
+    const active = DB.hq.filter(x => x.status === 'Active').length;
+    return [
+      ['Branches', '3'],
+      ['On-time rate', '94%'],
+      ['Total Staff', emp],
+      ['Active Staff', active]
+    ];
+  }
+  return MODS[id].stats;
+}
+
+// Module View Content Generators
+const ST=[['Available','#10B981'],['On trip','#F5821F'],['In service','#EF4444']];
+
+const VIEW = {
+  fleet: () => {
+    const st = TSTATE.fleet;
+    const dataset = filterDataset('fleet');
+    const start = (st.page - 1) * st.limit;
+    const pageData = dataset.slice(start, start + st.limit);
+
+    return `
+      <div class="tbl-controls">
+        <div class="tbl-search">
+          <input type="text" placeholder="Search vehicle ID, model, plate..." value="${st.search}" oninput="TSTATE.fleet.search=this.value;TSTATE.fleet.page=1;route()">
+        </div>
+        <div class="tbl-filters">
+          <select onchange="TSTATE.fleet.filter=this.value;TSTATE.fleet.page=1;route()">
+            <option value="ALL" ${st.filter==='ALL'?'selected':''}>All Statuses</option>
+            <option value="0" ${st.filter==='0'?'selected':''}>Available</option>
+            <option value="1" ${st.filter==='1'?'selected':''}>On trip</option>
+            <option value="2" ${st.filter==='2'?'selected':''}>In service</option>
+          </select>
+        </div>
+      </div>
+      <div class="tw">
+        <table>
+          <thead>
+            <tr><th>Vehicle ID</th><th>Make & Model</th><th>Plate No.</th><th>Type</th><th>Branch</th><th>Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            ${pageData.length === 0 ? '<tr><td colspan="7" style="text-align:center;color:#4a6570;">No matching vehicle records found</td></tr>' :
+              pageData.map(v => `
+                <tr>
+                  <td><b>${v.id}</b></td>
+                  <td>${v.m}</td>
+                  <td>${v.p || '—'}</td>
+                  <td>${v.t || 'Van'}</td>
+                  <td>${v.b || 'Tagbilaran'}</td>
+                  <td>${pill(ST[v.s]?.[0] || 'Available', ST[v.s]?.[1] || '#10B981')}</td>
+                  <td>
+                    <button class="act-btn" onclick="viewRecordDetails('fleet','${v.id}')">View</button>
+                    <button class="act-btn" onclick="openAddForm('fleet','${v.id}')">Edit</button>
+                    <button class="act-btn del" onclick="deleteRecord('fleet','${v.id}')">Delete</button>
+                  </td>
+                </tr>
+              `).join('')}
+          </tbody>
+        </table>
+      </div>
+      ${renderTablePaginationControls('fleet', dataset.length)}`;
+  },
+
+  drivers: () => {
+    const st = TSTATE.drivers;
+    const dataset = filterDataset('drivers');
+    const start = (st.page - 1) * st.limit;
+    const pageData = dataset.slice(start, start + st.limit);
+
+    return `
+      <div class="tbl-controls">
+        <div class="tbl-search">
+          <input type="text" placeholder="Search driver name, license, contact..." value="${st.search}" oninput="TSTATE.drivers.search=this.value;TSTATE.drivers.page=1;route()">
+        </div>
+        <div class="tbl-filters">
+          <select onchange="TSTATE.drivers.filter=this.value;TSTATE.drivers.page=1;route()">
+            <option value="ALL" ${st.filter==='ALL'?'selected':''}>All Statuses</option>
+            <option value="Available" ${st.filter==='Available'?'selected':''}>Available</option>
+            <option value="On shift" ${st.filter==='On shift'?'selected':''}>On shift</option>
+            <option value="Off today" ${st.filter==='Off today'?'selected':''}>Off today</option>
+          </select>
+        </div>
+      </div>
+      <div class="tw">
+        <table>
+          <thead>
+            <tr><th>Driver Name</th><th>License No.</th><th>Contact</th><th>License Expiry</th><th>Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            ${pageData.length === 0 ? '<tr><td colspan="6" style="text-align:center;color:#4a6570;">No matching driver records found</td></tr>' :
+              pageData.map(d => `
+                <tr>
+                  <td><b>${d.name}</b></td>
+                  <td>${d.lic}</td>
+                  <td>${d.phone}</td>
+                  <td>${d.exp}</td>
+                  <td>${pill(d.status, d.status==='Available'?'#10B981':d.status==='On shift'?'#F5821F':'#93aeb4')}</td>
+                  <td>
+                    <button class="act-btn" onclick="viewRecordDetails('drivers','${d.id}')">View</button>
+                    <button class="act-btn" onclick="openAddForm('drivers','${d.id}')">Edit</button>
+                    <button class="act-btn del" onclick="deleteRecord('drivers','${d.id}')">Delete</button>
+                  </td>
+                </tr>
+              `).join('')}
+          </tbody>
+        </table>
+      </div>
+      ${renderTablePaginationControls('drivers', dataset.length)}`;
+  },
+
+  trips: () => {
+    const st = TSTATE.trips;
+    const dataset = filterDataset('trips');
+    const start = (st.page - 1) * st.limit;
+    const pageData = dataset.slice(start, start + st.limit);
+
+    return `
+      <div class="tbl-controls">
+        <div class="tbl-search">
+          <input type="text" placeholder="Search trip ID, route, vehicle, driver..." value="${st.search}" oninput="TSTATE.trips.search=this.value;TSTATE.trips.page=1;route()">
+        </div>
+        <div class="tbl-filters">
+          <select onchange="TSTATE.trips.filter=this.value;TSTATE.trips.page=1;route()">
+            <option value="ALL" ${st.filter==='ALL'?'selected':''}>All Statuses</option>
+            <option value="Scheduled" ${st.filter==='Scheduled'?'selected':''}>Scheduled</option>
+            <option value="On route" ${st.filter==='On route'?'selected':''}>On route</option>
+            <option value="Delayed" ${st.filter==='Delayed'?'selected':''}>Delayed</option>
+            <option value="Completed" ${st.filter==='Completed'?'selected':''}>Completed</option>
+          </select>
+        </div>
+      </div>
+      <div class="tw">
+        <table>
+          <thead>
+            <tr><th>Trip ID</th><th>Vehicle</th><th>Driver</th><th>Route</th><th>Schedule</th><th>Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            ${pageData.length === 0 ? '<tr><td colspan="7" style="text-align:center;color:#4a6570;">No matching trip records found</td></tr>' :
+              pageData.map(t => `
+                <tr>
+                  <td><b>${t.id}</b></td>
+                  <td>${t.vehicle}</td>
+                  <td>${t.driver}</td>
+                  <td>${t.origin} → ${t.dest}</td>
+                  <td>${t.datetime.replace('T', ' ')}</td>
+                  <td>${pill(t.status, t.status==='On route'?'#10B981':t.status==='Delayed'?'#EF4444':'#F5821F')}</td>
+                  <td>
+                    <button class="act-btn" onclick="viewRecordDetails('trips','${t.id}')">View</button>
+                    <button class="act-btn" onclick="openAddForm('trips','${t.id}')">Edit</button>
+                    <button class="act-btn del" onclick="deleteRecord('trips','${t.id}')">Delete</button>
+                  </td>
+                </tr>
+              `).join('')}
+          </tbody>
+        </table>
+      </div>
+      ${renderTablePaginationControls('trips', dataset.length)}`;
+  },
+
+  garage: () => {
+    const st = TSTATE.garage;
+    const dataset = filterDataset('garage');
+    const start = (st.page - 1) * st.limit;
+    const pageData = dataset.slice(start, start + st.limit);
+
+    return `
+      <div class="tbl-controls">
+        <div class="tbl-search">
+          <input type="text" placeholder="Search vehicle, work type, technician..." value="${st.search}" oninput="TSTATE.garage.search=this.value;TSTATE.garage.page=1;route()">
+        </div>
+        <div class="tbl-filters">
+          <select onchange="TSTATE.garage.filter=this.value;TSTATE.garage.page=1;route()">
+            <option value="ALL" ${st.filter==='ALL'?'selected':''}>All Statuses</option>
+            <option value="In bay" ${st.filter==='In bay'?'selected':''}>In bay</option>
+            <option value="Due" ${st.filter==='Due'?'selected':''}>Due</option>
+            <option value="Overdue" ${st.filter==='Overdue'?'selected':''}>Overdue</option>
+            <option value="Scheduled" ${st.filter==='Scheduled'?'selected':''}>Scheduled</option>
+          </select>
+        </div>
+      </div>
+      <div class="tw">
+        <table>
+          <thead>
+            <tr><th>Vehicle</th><th>Maintenance Work</th><th>Service Date</th><th>Technician</th><th>Cost</th><th>Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            ${pageData.length === 0 ? '<tr><td colspan="7" style="text-align:center;color:#4a6570;">No matching garage records found</td></tr>' :
+              pageData.map(g => `
+                <tr>
+                  <td><b>${g.vehicle}</b></td>
+                  <td>${g.type}</td>
+                  <td>${g.date}</td>
+                  <td>${g.tech}</td>
+                  <td>₱${g.cost.toLocaleString()}</td>
+                  <td>${pill(g.status, g.status==='In bay'?'#F5821F':g.status==='Overdue'?'#EF4444':'#10B981')}</td>
+                  <td>
+                    <button class="act-btn" onclick="viewRecordDetails('garage','${g.id}')">View</button>
+                    <button class="act-btn" onclick="openAddForm('garage','${g.id}')">Edit</button>
+                    <button class="act-btn del" onclick="deleteRecord('garage','${g.id}')">Delete</button>
+                  </td>
+                </tr>
+              `).join('')}
+          </tbody>
+        </table>
+      </div>
+      ${renderTablePaginationControls('garage', dataset.length)}`;
+  },
+
+  fuel: () => {
+    const st = TSTATE.fuel;
+    const dataset = filterDataset('fuel');
+    const start = (st.page - 1) * st.limit;
+    const pageData = dataset.slice(start, start + st.limit);
+
+    return `
+      <div class="tbl-controls">
+        <div class="tbl-search">
+          <input type="text" placeholder="Search vehicle, driver, station..." value="${st.search}" oninput="TSTATE.fuel.search=this.value;TSTATE.fuel.page=1;route()">
+        </div>
+      </div>
+      <div class="tw">
+        <table>
+          <thead>
+            <tr><th>Vehicle</th><th>Driver</th><th>Date</th><th>Liters</th><th>Cost</th><th>Station</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            ${pageData.length === 0 ? '<tr><td colspan="7" style="text-align:center;color:#4a6570;">No matching fuel logs found</td></tr>' :
+              pageData.map(f => `
+                <tr>
+                  <td><b>${f.vehicle}</b></td>
+                  <td>${f.driver}</td>
+                  <td>${f.date}</td>
+                  <td>${f.liters} L</td>
+                  <td>₱${Math.round(f.liters * f.price).toLocaleString()}</td>
+                  <td>${f.station}</td>
+                  <td>
+                    <button class="act-btn" onclick="viewRecordDetails('fuel','${f.id}')">View</button>
+                    <button class="act-btn" onclick="openAddForm('fuel','${f.id}')">Edit</button>
+                    <button class="act-btn del" onclick="deleteRecord('fuel','${f.id}')">Delete</button>
+                  </td>
+                </tr>
+              `).join('')}
+          </tbody>
+        </table>
+      </div>
+      ${renderTablePaginationControls('fuel', dataset.length)}`;
+  },
+
+  hq: () => {
+    const st = TSTATE.hq;
+    const dataset = filterDataset('hq');
+    const start = (st.page - 1) * st.limit;
+    const pageData = dataset.slice(start, start + st.limit);
+
+    return `
+      <div class="tbl-controls">
+        <div class="tbl-search">
+          <input type="text" placeholder="Search employee name, role, username..." value="${st.search}" oninput="TSTATE.hq.search=this.value;TSTATE.hq.page=1;route()">
+        </div>
+      </div>
+      <div class="tw">
+        <table>
+          <thead>
+            <tr><th>Employee Name</th><th>Username</th><th>Role</th><th>Branch</th><th>Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            ${pageData.length === 0 ? '<tr><td colspan="6" style="text-align:center;color:#4a6570;">No matching staff records found</td></tr>' :
+              pageData.map(e => `
+                <tr>
+                  <td><b>${e.name}</b></td>
+                  <td>${e.username}</td>
+                  <td>${e.role}</td>
+                  <td>${e.branch}</td>
+                  <td>${pill(e.status, e.status==='Active'?'#10B981':'#F5821F')}</td>
+                  <td>
+                    <button class="act-btn" onclick="viewRecordDetails('hq','${e.id}')">View</button>
+                    <button class="act-btn" onclick="openAddForm('hq','${e.id}')">Edit</button>
+                    <button class="act-btn del" onclick="deleteRecord('hq','${e.id}')">Delete</button>
+                  </td>
+                </tr>
+              `).join('')}
+          </tbody>
+        </table>
+      </div>
+      ${renderTablePaginationControls('hq', dataset.length)}`;
+  }
+};
+
+const kpis = a => `<div class="kpis">${a.map(k=>`<div class="kpi"><b>${k[1]}</b><span>${k[0]}</span>${k[2]?`<small style="color:${k[3]||'#047857'}">${k[2]}</small>`:''}</div>`).join('')}</div>`;
+
+function page(id){
+  const m = MODS[id];
+  const dynamicKPIs = getModuleKPIs(id);
+
+  return `
+    <div class="bg" style="--acc:${ACC[id]}" aria-hidden="true">${bg()}</div>
+    <nav class="rail" aria-label="Modules">
+      ${Object.keys(MODS).map(k=>`<a href="#${k}" class="${k==id?'a':''}" style="--c:${ACC[k]}"${k==id?' aria-current="page"':''}><i></i>${MODS[k].pin[0]}</a>`).join('')}
+    </nav>
+    <main style="--acc:${ACC[id]}">
+      <header class="dh3">
+        <div class="hl">
+          ${ico(id)}
+          <div><h1>${m.t}</h1><p>${m.s}</p></div>
+        </div>
+        <div class="hr">
+          <button class="btn add-rec" onclick="openAddForm('${id}')">+ Add Record</button>
+          <a class="btn hub" href="#">← 3D Hub</a>
+        </div>
+      </header>
+      <div class="sheet">
+        <h2 class="sh">At a glance</h2>
+        ${kpis(dynamicKPIs)}
+        ${VIEW[id]()}
+        <p class="note">Data is managed locally and structured for PostgreSQL / Express API integration.</p>
+      </div>
+    </main>`;
+}
+
+function route(){
+  const h=location.hash.slice(1),f=h.startsWith('hub-')&&MODS[h.slice(4)]?h.slice(4):null;
+  if(MODS[h]){
+    const om=$('#dash main'),sc=om&&last===h?om.scrollTop:0;
+    DASH=true;dd=0;
+    document.body.classList.add('dm');
+    last=h;
+    $('#dash').innerHTML=page(h);
+    if(sc)$('#dash main').scrollTop=sc;
+    $('#dash').classList.add('on');
+  }else{
+    DASH=false;
+    document.body.classList.remove('dm');
+    $('#dash').classList.remove('on');
+    if(f)focus(f);
+    else if(last){
+      focus(last);
+      Object.assign(g,{tx:0,ty:0,tz:0,r:HUB.r,ph:HUB.ph});
+      if(reduce)Object.assign(c,g);
+    }
+    last=null;
+  }
+}
+
+function conn(){
+  const s=$('#conn');
+  if(!cur){s.style.display='none';return}
+  s.style.display='block';s.style.setProperty('--acc',ACC[cur]);
+  v3.set(...anchors[cur]).project(cam);
+  const ax=(v3.x+1)/2*innerWidth,ay=(1-v3.y)/2*innerHeight,L=$('#ln'),r=$('#panel').getBoundingClientRect();
+  $('#cm').setAttribute('transform',`translate(${ax} ${ay})`);
+  if(innerWidth<640||r.left>=innerWidth)L.style.display='none';
+  else{
+    L.style.display='';
+    const bx=r.left,by=r.top+36,mx=ax+(bx-ax)*.5;
+    L.setAttribute('d',`M${ax} ${ay}C${mx} ${ay},${mx} ${by},${bx} ${by}`);
+  }
+}
+
+addEventListener('hashchange',route);
+addEventListener('keydown',e=>{if(e.key==='Escape'&&DASH)location.hash=''});
+route();
+loop();
+</script>
+
+ <script>
+    /* FleetTrack API client. UI code must only call window.FT_API (never fetch directly).
+   NO backend routes are assumed. Every entry in routes is null until the backend developer supplies the real
+   Express route (a string, or a function(params) returning a string). Session = httpOnly cookie set by the
+   backend (credentials: 'include'); no token is stored in JS, localStorage or sessionStorage. */
+(function(g){
+const API_CONFIG={baseUrl:'',useMock:true,idleMs:30*60*1000,
+ routes:{login:null,logout:null,me:null,lookups:null,summary:null,list:null,create:null,update:null,remove:null,settingsGet:null,settingsSave:null,changePassword:null,admin:null}};
+class ApiError extends Error{constructor(s,m,d){super(m);this.status=s;this.data=d||null}}
+const hooks={onUnauthorized(){}};
+async function request(name,{params,body,method}={}){
+ const r=API_CONFIG.routes[name];
+ if(!r)throw new ApiError(0,`API route "${name}" is not configured yet. Get the real route from the backend developer.`);
+ let res;try{res=await fetch(API_CONFIG.baseUrl+(typeof r==='function'?r(params):r),{method:method||(body?'POST':'GET'),credentials:'include',headers:{'Content-Type':'application/json',Accept:'application/json'},body:body?JSON.stringify(body):undefined})}catch(e){throw new ApiError(0,'Cannot reach the server. Check your connection and try again.')}
+ let data=null;try{data=await res.json()}catch(e){}
+ if(res.status===401){hooks.onUnauthorized();throw new ApiError(401,'Session expired or not signed in',data)}
+ if(!res.ok)throw new ApiError(res.status,(data&&data.message)||res.statusText,data);
+ return data}
+/* ---------- DEMO ONLY: in-memory adapter. Statuses below are NOT verified against PostgreSQL. ---------- */
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const PFX={fleet:'VAN-',drivers:'DRV-',trips:'TRIP-',garage:'MNT-',fuel:'FUL-',hq:'EMP-'};
+const M={db:null,session:null,store:{notif:{overdue:true,delayed:true,licence:false},appearance:{motion:'system'},system:{fuelPrice:61.4,serviceKm:10000,idleMin:30,licenceDays:60}},
+ users:{'admin.demo':{name:'Maria Santos',role:'admin',permissions:['read','write','delete','admin']},'dispatch.demo':{name:'Carlos Ramos',role:'dispatcher',permissions:['read','write']},'inactive.demo':{code:'inactive'},'blocked.demo':{code:'unauthorized'}},
+ logs:[['2026-10-31 09:12','admin.demo','Signed in','—'],['2026-10-31 09:20','admin.demo','Updated record','TRIP-4471'],['2026-10-30 16:02','dispatch.demo','Created record','FUL-07']],
+ lk(){const d=this.db;return{vehicleTypes:[{value:'Van',label:'Van'},{value:'Truck',label:'Truck'}],branches:['Tagbilaran','Panglao','Tubigon'].map(v=>({value:v,label:v})),vehicles:d.fleet.map(v=>({value:v.id,label:`${v.id} (${v.m})`})),drivers:d.drivers.map(x=>({value:x.id,label:x.name})),
+  status:{fleet:['Available','On trip','In service'],drivers:['Available','On shift','Off today'],trips:['Scheduled','On route','Delayed','Completed'],garage:['Scheduled','In bay','Due','Overdue','Completed'],hq:['Active','On leave','Inactive']}}},
+ need(){if(!this.session){hooks.onUnauthorized();throw new ApiError(401,'Session expired')}},
+ admin(){this.need();if(!this.session.permissions.includes('admin'))throw new ApiError(403,'You do not have permission to view this.')}};
+const mock={
+ seed(db){const c=JSON.parse(JSON.stringify(db)),sm={'0':'Available','1':'On trip','2':'In service'},idBy={};c.drivers.forEach(d=>idBy[d.name]=d.id);c.fleet.forEach(v=>v.s=sm[v.s]||v.s);['trips','fuel'].forEach(k=>c[k].forEach(r=>r.driver=idBy[r.driver]||r.driver));M.db=c},
+ async login(u,p){await sleep(450);const a=M.users[u];if(!a||p!=='Demo#1234')throw new ApiError(401,'Incorrect credentials');if(a.code)throw new ApiError(403,a.code,{code:a.code});M.session={username:u,...a};return{...M.session}},
+ async logout(){await sleep(100);M.session=null},async me(){return M.session?{...M.session}:null},
+ async lookups(){await sleep(150);M.need();return M.lk()},
+ async list(mod,{page=1,limit=10,search='',filter='ALL'}={}){await sleep(250);M.need();const key=mod==='fleet'?'s':'status',dr=id=>(M.db.drivers.find(d=>d.id===id)||{name:id}).name;
+  let a=M.db[mod].map(r=>({r,d:r.driver!==undefined?{...r,driver:dr(r.driver)}:{...r}}));const q=search.toLowerCase();
+  if(q)a=a.filter(x=>Object.values(x.d).some(v=>String(v).toLowerCase().includes(q)));if(filter!=='ALL')a=a.filter(x=>x.r[key]===filter);
+  const s=(page-1)*limit,p=a.slice(s,s+limit);return{rows:p.map(x=>x.d),raw:p.map(x=>x.r),total:a.length}},
+ async summary(mod){await sleep(200);M.need();const a=M.db[mod],n=a.length,key=mod==='fleet'?'s':'status';
+  if(mod==='fuel'){const l=a.reduce((s,x)=>s+x.liters,0),c=a.reduce((s,x)=>s+x.liters*x.price,0);return[['Total refuels',n],['Volume',Math.round(l)+' L'],['Spend','\u20b1'+Math.round(c/1000)+'k'],['Avg price','\u20b1'+(c/(l||1)).toFixed(2)]]}
+  return[['Total records',n],...(M.lk().status[mod]||['—']).slice(0,3).map(o=>[o,a.filter(x=>x[key]===o).length])]},
+ async create(mod,p){await sleep(450);M.need();const a=M.db[mod],mx=a.reduce((m,x)=>Math.max(m,parseInt(String(x.id).replace(/\D/g,''))||0),0),id=PFX[mod]+String(mx+1).padStart(2,'0');a.unshift({...p,id});return{id}},
+ async update(mod,id,p){await sleep(450);M.need();const r=M.db[mod].find(x=>x.id===id);if(!r)throw new ApiError(404,'Record not found');Object.assign(r,p);return{id}},
+ async remove(mod,id){await sleep(300);M.need();if(!M.session.permissions.includes('delete'))throw new ApiError(403,'You are not allowed to delete records.');M.db[mod]=M.db[mod].filter(x=>x.id!==id);return{id}},
+ async settingsGet(s){await sleep(150);M.need();return{...M.store[s]}},
+ async settingsSave(s,p){await sleep(350);M.need();if(s==='system')M.admin();M.store[s]={...M.store[s],...p};return{ok:true}},
+ async changePassword(c,n){await sleep(500);M.need();if(c!=='Demo#1234')throw new ApiError(400,'Current password is incorrect');return{ok:true}},
+ async admin(kind){await sleep(250);M.admin();return kind==='users'?[['Maria Santos','admin.demo','admin','Active'],['Carlos Ramos','dispatch.demo','dispatcher','Active'],['Old Account','inactive.demo','dispatcher','Inactive']]:kind==='branches'?[['Tagbilaran','Main depot','M. Santos'],['Panglao','Resort area','C. Ramos'],['Tubigon','Northern route','J. Tan']]:M.logs}};
+const real={login:(u,p)=>request('login',{body:{username:u,password:p}}),logout:()=>request('logout',{method:'POST'}),me:()=>request('me').catch(e=>{if(e.status===401)return null;throw e}),
+ lookups:()=>request('lookups'),list:(m,q)=>request('list',{params:{mod:m,...q}}),summary:m=>request('summary',{params:{mod:m}}),
+ create:(m,p)=>request('create',{params:{mod:m},body:p}),update:(m,id,p)=>request('update',{params:{mod:m,id},body:p,method:'PUT'}),remove:(m,id)=>request('remove',{params:{mod:m,id},method:'DELETE'}),
+ settingsGet:s=>request('settingsGet',{params:{section:s}}),settingsSave:(s,p)=>request('settingsSave',{params:{section:s},body:p,method:'PUT'}),
+ changePassword:(c,n)=>request('changePassword',{body:{current:c,next:n}}),admin:k=>request('admin',{params:{kind:k}})};
+const api=new Proxy({},{get:(_,k)=>k==='config'?API_CONFIG:k==='hooks'?hooks:k==='ApiError'?ApiError:k==='seedMock'?mock.seed:k==='mockExpire'?()=>{M.session=null}:(...a)=>(API_CONFIG.useMock?mock:real)[k](...a)});
+g.FT_API=api})(typeof window!=='undefined'?window:globalThis);
+  </script>
+  <script>
+    /* FleetTrack layer: login/session, settings, API-driven data, auto IDs, DB-lookup dropdowns.
+   Load AFTER your existing main script (and after api.js). It reuses your 3D hub, dashboards and styling. */
+(function(){
+const A=FT_API,CFG=A.config,MOCK=CFG.useMock;
+let SESSION=null,LK={},seq=0,tmr,idle,stab='profile';const CACHE={},SET={};
+const can=p=>!!(SESSION&&SESSION.permissions&&SESSION.permissions.includes(p));
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const stc=s=>{s=String(s).toLowerCase();return/overdue|delayed|critical|inactive|blocked/.test(s)?'#EF4444':/available|normal|active|completed|on route/.test(s)?'#10B981':/pending|bay|due|scheduled|leave|attention/.test(s)?'#F5821F':'#93aeb4'};
+const css=document.createElement('style');css.textContent=`
+body.lg .pin,body.lg #panel,body.lg #conn,body.lg #back,body.lg #hint,body.lg #userbar{display:none!important}
+#login{position:fixed;inset:0;z-index:5000;display:none;place-items:center;padding:16px;background:linear-gradient(180deg,#bfe4fb,#e6f3f7 55%,#fdf0d8)}
+#login.on{display:grid}
+.lcard{width:min(400px,100%);background:rgba(255,255,255,.72);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);border:1.5px solid rgba(255,255,255,.9);border-radius:28px;padding:28px;box-shadow:0 20px 60px rgba(16,48,58,.2);color:#10303a}
+.lcard h1{margin:10px 0 4px;font-size:28px;letter-spacing:-.02em}.lcard p{margin:0 0 16px;color:#4a6570}
+.lcard label{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;margin:12px 0 5px}
+.lcard input,.sform input,.sform select{width:100%;padding:11px 14px;border-radius:14px;border:1.5px solid rgba(16,48,58,.3);background:rgba(255,255,255,.85);font:inherit;color:#10303a}
+.pwrow{position:relative}.pwrow button{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:none;font:600 12px inherit;font-family:inherit;color:#10303a;cursor:pointer;padding:6px 10px}
+.lerr,.ferr{color:#b91c1c;font-size:13px;font-weight:600;min-height:18px;margin-top:6px}.lok{color:#047857;font-size:13px;font-weight:600;margin-top:6px}
+.lcard .btn{width:100%;justify-content:center;margin-top:16px;padding:12px}.ldemo{font-size:12px;color:#4a6570;margin-top:14px;line-height:1.5}
+#userbar{position:fixed;right:16px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:3;display:flex;gap:8px;align-items:center;background:rgba(255,255,255,.75);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:1.5px solid rgba(255,255,255,.9);border-radius:999px;padding:5px 6px 5px 14px;font-size:13px;color:#10303a;box-shadow:0 6px 18px rgba(16,48,58,.18)}
+#userbar .btn{padding:5px 12px;font-size:12px;box-shadow:0 2px 0 #10303a}body.dm #userbar{display:none}
+#demo{position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:6000;background:#FFD100;color:#10303a;border:1.5px solid #10303a;border-radius:999px;padding:2px 12px;font-size:12px;font-weight:700;pointer-events:none}
+.sform{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:640px}.sform .full{grid-column:1/-1}.sform label{font-size:12px;font-weight:700;text-transform:uppercase}
+.tg{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(16,48,58,.1)}.tg input{width:20px;height:20px;accent-color:#10303a}
+body.rm *{animation:none!important;transition:none!important}.hr .btn.out{font-size:13px}
+@media(max-width:640px){.sform{grid-template-columns:1fr}#userbar{left:16px;justify-content:space-between}}`;
+document.head.appendChild(css);
+if(MOCK){const d=document.createElement('div');d.id='demo';d.textContent='DEMO MODE: sample data, not connected to PostgreSQL';document.body.appendChild(d)}
+const lg=document.createElement('div');lg.id='login';document.body.appendChild(lg);
+const ub=document.createElement('div');ub.id='userbar';document.body.appendChild(ub);
+/* ---- data isolation: prototype records move into the mock adapter; the UI starts empty ---- */
+if(MOCK)A.seedMock(DB);for(const k in DB)DB[k]=[];
+MODS.settings={t:'Settings',s:'Profile, security, preferences and administration',pin:['Settings',''],stats:[],rows:[]};
+VIEW.settings=()=>'';ACC.settings='#64748B';ICON.settings='<circle cx="12" cy="12" r="3"/><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.6 5.6l2.1 2.1m8.6 8.6l2.1 2.1m0-12.8l-2.1 2.1M7.7 16.3l-2.1 2.1"/>';
+if(!MOCK)Object.values(MODS).forEach(m=>{m.stats=m.stats.map(s=>[s[0],'\u2014']);m.rows=[]});
+/* ---- session ---- */
+function showLogin(msg,ok){document.body.classList.add('lg');document.body.classList.remove('dm');DASH=false;$('#dash').classList.remove('on');ub.style.display='none';
+ lg.innerHTML=`<form class="lcard" id="lf" novalidate><svg width="40" height="40" viewBox="0 0 30 30" aria-hidden="true"><rect width="30" height="30" rx="8" fill="#ffb000"/><path d="M6 20h13l3-7h3M8 20v3m10-3v3M6 20V9h12v11" stroke="#1b1400" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><h1>FleetTrack</h1><p>Sign in to the operations hub</p>
+ <label for="lu">Username or email</label><input id="lu" autocomplete="username"><div class="ferr" id="lue"></div>
+ <label for="lp">Password</label><div class="pwrow"><input id="lp" type="password" autocomplete="current-password"><button type="button" id="lt" aria-label="Show password">Show</button></div><div class="ferr" id="lpe"></div>
+ <div class="${ok?'lok':'lerr'}" id="lm" role="alert">${esc(msg||'')}</div><button class="btn p" id="lb" type="submit" style="--acc:#FFD100">Log in</button>
+ ${MOCK?'<div class="ldemo">Demo accounts (password Demo#1234): admin.demo, dispatch.demo, inactive.demo, blocked.demo</div>':''}</form>`;
+ lg.classList.add('on');$('#lt').onclick=()=>{const p=$('#lp'),h=p.type==='password';p.type=h?'text':'password';$('#lt').textContent=h?'Hide':'Show';$('#lt').setAttribute('aria-label',h?'Hide password':'Show password')};
+ $('#lf').onsubmit=async e=>{e.preventDefault();const u=$('#lu').value.trim(),p=$('#lp').value;$('#lue').textContent=u?'':'Enter your username or email.';$('#lpe').textContent=p?'':'Enter your password.';$('#lm').textContent='';if(!u||!p)return;
+  const b=$('#lb');b.disabled=true;b.textContent='Signing in\u2026';
+  try{await start(await A.login(u,p))}catch(er){b.disabled=false;b.textContent='Log in';const c=er.data&&er.data.code;$('#lm').className='lerr';$('#lm').textContent=er.status===401?'Incorrect username or password.':c==='inactive'?'This account is inactive. Contact your administrator.':er.status===403?'This account is not authorized to use FleetTrack.':er.message}};
+ setTimeout(()=>$('#lu')&&$('#lu').focus(),50)}
+async function start(u){SESSION=u;try{LK=await A.lookups()}catch(e){LK={error:e.message}}
+ lg.classList.remove('on');document.body.classList.remove('lg');ub.style.display='';ub.innerHTML=`<span>${esc(u.name)} \u00b7 ${esc(u.role)}</span><a class="btn" href="#settings">Settings</a><button class="btn" id="lo">Log out</button>`;$('#lo').onclick=()=>logout();
+ applyPrefs();hydrate();bumpIdle();route()}
+async function logout(msg){try{await A.logout()}catch(e){}SESSION=null;LK={};for(const k in CACHE)delete CACHE[k];for(const k in DB)DB[k]=[];location.hash='';home();showLogin(msg||'You have been signed out.',!msg)}
+A.hooks.onUnauthorized=()=>{if(SESSION){SESSION=null;showLogin('Your session expired. Please sign in again.')}};
+function bumpIdle(){clearTimeout(idle);if(SESSION)idle=setTimeout(()=>logout('You were signed out after a period of inactivity.'),CFG.idleMs)}
+['pointerdown','keydown'].forEach(ev=>addEventListener(ev,bumpIdle,{passive:true}));
+async function applyPrefs(){try{const p=await A.settingsGet('appearance');document.body.classList.toggle('rm',p.motion==='on')}catch(e){}}
+async function hydrate(){for(const k of Object.keys(MODS)){if(k==='settings')continue;try{const[s,l]=await Promise.all([A.summary(k),A.list(k,{page:1,limit:4})]);MODS[k].stats=s.slice(0,4).map(x=>[x[0],x[1]]);
+ MODS[k].rows=l.rows.map(r=>[esc(`${r.id} \u00b7 ${r.name||r.vehicle||r.type||r.m||r.origin||''}`),r.status||r.s||'\u2014',stc(r.status||r.s)]);
+ const sp=pins[k]&&pins[k].querySelector('span');if(sp)sp.textContent=`${s[0][1]} ${String(s[0][0]).toLowerCase()}`}catch(e){}}}
+/* ---- data loading ---- */
+window.filterDataset=m=>{const c=CACHE[m]||{rows:[],total:0};return{length:c.total,slice:()=>c.rows}};
+window.getModuleKPIs=id=>(CACHE[id]&&CACHE[id].summary)||[['Loading','\u2026'],['Loading','\u2026'],['Loading','\u2026'],['Loading','\u2026']];
+function reload(h,now){if(h==='settings')return;clearTimeout(tmr);tmr=setTimeout(async()=>{const c=CACHE[h]=CACHE[h]||{rows:[],raw:[],total:0},my=++seq,st=TSTATE[h];c.loading=true;c.error=null;
+ try{const[l,s]=await Promise.all([A.list(h,{page:st.page,limit:st.limit,search:st.search,filter:st.filter}),A.summary(h)]);if(my!==seq)return;Object.assign(c,{rows:l.rows,raw:l.raw||l.rows,total:l.total,summary:s});DB[h]=c.raw}catch(e){if(my!==seq)return;c.error=e.message}c.loading=false;if(DASH&&last===h)draw(h)},now?0:220)}
+/* ---- rendering ---- */
+const _page=window.page;
+function draw(h){const om=$('#dash main'),sc=om&&last===h?om.scrollTop:0,ae=document.activeElement,fk=ae&&ae.closest&&ae.closest('.tbl-search')?ae:null,pos=fk?fk.selectionStart:0;
+ DASH=true;dd=0;document.body.classList.add('dm');last=h;$('#dash').innerHTML=_page(h);$('#dash').classList.add('on');post(h);
+ if(sc)$('#dash main').scrollTop=sc;if(fk){const n=$('#dash .tbl-search input');if(n){n.focus();n.setSelectionRange(pos,pos)}}}
+function post(h){const hr=$('#dash .hr'),c=CACHE[h];if(hr){const b=document.createElement('button');b.className='btn out';b.textContent='Log out';b.onclick=()=>logout();hr.appendChild(b)}
+ const add=$('#dash .add-rec');if(add&&(h==='settings'||!can('write')))add.remove();if(!can('delete'))document.querySelectorAll('#dash .act-btn.del').forEach(x=>x.remove());
+ const note=$('#dash .note');if(note)note.textContent=MOCK?'Demo data held in memory for this session. Not connected to PostgreSQL.':'';
+ if(h==='settings'){$('#dash .sheet').innerHTML='';renderSettings();return}
+ const cell=$('#dash td[colspan]');if(cell&&c){if(c.loading||!c.rows.length&&!c.error&&!c.summary)cell.textContent='Loading records\u2026';else if(c.error)cell.innerHTML=`${esc(c.error)} <button class="act-btn" onclick="route()">Retry</button>`}
+ if(c&&c.error&&!cell)$('#dash .sheet').insertAdjacentHTML('afterbegin',`<div class="ferr" role="alert">${esc(c.error)}</div>`)}
+window.page=id=>_page(id);
+const _route=window.route;removeEventListener('hashchange',_route);
+window.route=function(){if(!SESSION){showLogin();return}
+ const h=location.hash.slice(1),f=h.startsWith('hub-')&&MODS[h.slice(4)]&&h.slice(4)!=='settings'?h.slice(4):null;
+ if(MODS[h]){draw(h);reload(h)}else{DASH=false;document.body.classList.remove('dm');$('#dash').classList.remove('on');if(f)focus(f);else if(last){focus(last);Object.assign(g,{tx:0,ty:0,tz:0,r:HUB.r,ph:HUB.ph});if(reduce)Object.assign(c,g)}last=null}};
+addEventListener('hashchange',window.route);
+/* ---- forms: no ID fields, dropdowns from backend lookups ---- */
+const FIELDS={fleet:{m:'f-m',p:'f-p',t:'f-t',b:'f-b',s:'f-s'},drivers:{name:'f-name',lic:'f-lic',phone:'f-phone',exp:'f-exp',status:'f-status'},trips:{vehicle:'f-vehicle',driver:'f-driver',origin:'f-origin',dest:'f-dest',datetime:'f-datetime',status:'f-status'},garage:{vehicle:'f-vehicle',type:'f-type',desc:'f-desc',date:'f-date',tech:'f-tech',cost:'f-cost',status:'f-status'},fuel:{vehicle:'f-vehicle',driver:'f-driver',date:'f-date',liters:'f-liters',price:'f-price',odo:'f-odo',station:'f-station'},hq:{name:'f-name',username:'f-username',role:'f-role',branch:'f-branch',status:'f-status'}};
+const _open=window.openAddForm;
+window.openAddForm=function(m,id){_open(m,id);const rec=(id&&DB[m].find(x=>x.id===id))||{},fid=$('#f-id');if(fid)fid.closest('.f-group').remove();
+ const S=(i,o,v)=>{const el=$('#'+i);if(el)el.innerHTML=(v?'':'<option value="">Select\u2026</option>')+(o||[]).map(x=>`<option value="${esc(x.value)}"${x.value==v?' selected':''}>${esc(x.label)}</option>`).join('')};
+ const st=(LK.status&&LK.status[m]||[]).map(v=>({value:v,label:v}));
+ S('f-s',st,rec.s);S('f-status',st,rec.status);S('f-t',LK.vehicleTypes,rec.t);S('f-b',LK.branches,rec.b);S('f-branch',LK.branches,rec.branch);S('f-vehicle',LK.vehicles,rec.vehicle);S('f-driver',LK.drivers,rec.driver);
+ if(LK.error||!LK.status){const b=$('#form-save-btn');if(b)b.disabled=true;$('#mod-form').insertAdjacentHTML('afterbegin',`<div class="ferr full" role="alert">Dropdown options could not be loaded from the server (${esc(LK.error||'no data')}). Saving is disabled.</div>`)}};
+window.handleFormSubmit=async function(e){e.preventDefault();if(isSubmitting)return;const form=$('#mod-form');let ok=true;
+ form.querySelectorAll('.f-group').forEach(gr=>{const i=gr.querySelector('input,select,textarea'),bad=i&&!i.checkValidity();gr.classList.toggle('has-err',!!bad);if(bad)ok=false});if(!ok){showToast('Please complete the required fields');return}
+ isSubmitting=true;const btn=$('#form-save-btn');btn.disabled=true;btn.textContent='Saving\u2026';const mod=activeModalModule,eid=editingRecordId,p={};
+ for(const[k,i]of Object.entries(FIELDS[mod])){const el=$('#'+i);if(el)p[k]=el.type==='number'?parseFloat(el.value):el.value.trim()}
+ try{const r=eid?await A.update(mod,eid,p):await A.create(mod,p);closeModal();showToast(eid?`Record ${eid} updated`:`Record created. ID: ${r.id}`);reload(mod,true);hydrate()}
+ catch(er){isSubmitting=false;btn.disabled=false;btn.textContent='Save Record';$('#mod-form .ferr')&&$('#mod-form .ferr').remove();$('#mod-form').insertAdjacentHTML('afterbegin',`<div class="ferr full" role="alert">${esc(er.message)}</div>`)}};
+window.deleteRecord=async function(m,id){if(!can('delete'))return showToast('You are not allowed to delete records');if(!confirm(`Delete record ${id}? This cannot be undone.`))return;
+ try{await A.remove(m,id);showToast(`Record ${id} deleted`);reload(m,true);hydrate()}catch(er){showToast(er.message)}};
+/* ---- settings ---- */
+const TABS=[['profile','My Profile'],['security','Security'],['notif','Notifications'],['appear','Appearance'],['users','User Management',1],['branches','Branch Management',1],['sysconf','System Configuration',1],['logs','Activity Logs',1]];
+window.setTab=t=>{stab=t;renderSettings()};
+const F=(id,l,t,v,x='')=>`<div class="full" style="grid-column:auto"><label for="s-${id}">${l}</label><input id="s-${id}" type="${t}" value="${esc(v)}" ${x}></div>`;
+const T=(h,r)=>`<div class="tw"><table><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${r.map(a=>`<tr>${a.map(x=>`<td>${esc(x)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+async function renderSettings(){const box=$('#dash .sheet');if(!box)return;const tabs=TABS.filter(t=>!t[2]||can('admin'));if(!tabs.some(t=>t[0]===stab))stab='profile';
+ box.innerHTML=`<h2 class="sh">Settings</h2><div class="chips">${tabs.map(t=>`<button class="chip${stab===t[0]?' a':''}" onclick="setTab('${t[0]}')">${t[1]}</button>`).join('')}</div><div class="card" id="sb"><p class="sm">Loading\u2026</p></div>`;
+ const b=$('#sb'),my=stab;let h='';
+ try{if(stab==='profile')h=`<form class="sform" id="sf">${F('name','Display name','text',SESSION.name)}${F('email','Email','email',SESSION.email||'')}<p class="sm full">Username: ${esc(SESSION.username)} \u00b7 Role: ${esc(SESSION.role)}</p><div><button class="btn p" type="submit">Save profile</button></div></form>`;
+ else if(stab==='security')h=`<form class="sform" id="sf">${F('cur','Current password','password','','autocomplete="current-password"')}${F('new','New password (min 8 characters)','password','','autocomplete="new-password"')}${F('con','Confirm new password','password','','autocomplete="new-password"')}<div><button class="btn p" type="submit">Change password</button></div></form>`;
+ else if(stab==='notif'){const n=await A.settingsGet('notif');h=`<form id="sf">${[['overdue','Overdue maintenance'],['delayed','Delayed trips'],['licence','Driver licence expiring']].map(x=>`<label class="tg"><input type="checkbox" id="s-${x[0]}" ${n[x[0]]?'checked':''}>${x[1]}</label>`).join('')}<br><button class="btn p" type="submit">Save notifications</button></form>`}
+ else if(stab==='appear'){const p=await A.settingsGet('appearance');h=`<form class="sform" id="sf"><div class="full"><label for="s-motion">Reduce motion</label><select id="s-motion"><option value="system"${p.motion==='system'?' selected':''}>Follow device setting</option><option value="on"${p.motion==='on'?' selected':''}>Always reduce</option></select></div><div><button class="btn p" type="submit">Save preferences</button></div></form>`}
+ else if(stab==='users')h=T(['Name','Username','Role','Status'],await A.admin('users'));
+ else if(stab==='branches')h=T(['Branch','Description','Manager'],await A.admin('branches'));
+ else if(stab==='logs')h=T(['Time','User','Action','Target'],await A.admin('logs'));
+ else if(stab==='sysconf'){const s=await A.settingsGet('system');h=`<form class="sform" id="sf">${F('fuelPrice','Default fuel price per litre','number',s.fuelPrice,'step="0.01" min="0" required')}${F('serviceKm','Service interval (km)','number',s.serviceKm,'min="1" required')}${F('idleMin','Idle sign-out (minutes)','number',s.idleMin,'min="1" required')}${F('licenceDays','Licence warning (days)','number',s.licenceDays,'min="1" required')}<div><button class="btn p" type="submit">Save configuration</button></div></form>`}
+ if(my!==stab)return;b.innerHTML=h+(['users','branches','sysconf','logs'].includes(stab)?'<p class="sm">Administrator-only. The backend must also enforce this permission.</p>':'');const f=$('#sf');if(f)f.onsubmit=ev=>saveSet(ev)}
+ catch(er){b.innerHTML=`<div class="ferr" role="alert">${esc(er.message)}</div>`}}
+async function saveSet(ev){ev.preventDefault();const btn=ev.submitter||$('#sf button'),old=btn.textContent;btn.disabled=true;btn.textContent='Saving\u2026';const v=i=>{const e=$('#s-'+i);return e?(e.type==='checkbox'?e.checked:e.value):''};
+ try{if(stab==='security'){if(!v('cur')||v('new').length<8)throw new Error('Enter your current password and a new password of at least 8 characters.');if(v('new')!==v('con'))throw new Error('The new passwords do not match.');if(v('new')===v('cur'))throw new Error('Choose a different password from the current one.');await A.changePassword(v('cur'),v('new'));$('#sf').reset()}
+ else if(stab==='profile'){if(!v('name').trim())throw new Error('Display name is required.');await A.settingsSave('profile',{name:v('name').trim(),email:v('email')});SESSION.name=v('name').trim()}
+ else if(stab==='notif')await A.settingsSave('notif',{overdue:v('overdue'),delayed:v('delayed'),licence:v('licence')});
+ else if(stab==='appear'){await A.settingsSave('appearance',{motion:v('motion')});document.body.classList.toggle('rm',v('motion')==='on')}
+ else if(stab==='sysconf'){if(!$('#sf').checkValidity())throw new Error('Check the highlighted values.');await A.settingsSave('system',{fuelPrice:+v('fuelPrice'),serviceKm:+v('serviceKm'),idleMin:+v('idleMin'),licenceDays:+v('licenceDays')})}
+ showToast('Saved')}catch(er){showToast(er.message)}btn.disabled=false;btn.textContent=old}
+/* ---- boot ---- */
+$('#load')&&($('#load').style.display='none');
+A.me().then(u=>u?start(u):showLogin()).catch(()=>showLogin());
+})();
+  </script>
+</body>
+</html>

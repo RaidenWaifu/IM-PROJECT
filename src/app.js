@@ -4,6 +4,7 @@ const express = require('express');
 const pool = require('./db');
 const vehicleRoutes = require('./routes/vehicleRoutes');
 const authRoutes = require('./routes/authRoutes');
+const operationsRoutes = require('./routes/operationsRoutes');
 
 const app = express();
 
@@ -38,6 +39,7 @@ app.get('/health/db', async (req, res) => {
 
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api', operationsRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

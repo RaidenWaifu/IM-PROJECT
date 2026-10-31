@@ -1,5 +1,4 @@
-﻿
-const pool = require('../db');
+﻿const pool = require('../db');
 
 const vehicleSelect = `
   SELECT
@@ -44,7 +43,101 @@ async function getVehicleById(vehicleId) {
   return result.rows[0] || null;
 }
 
+async function createVehicle(vehicleData) {
+  const {
+    vehicle_type_id,
+    branch_id,
+    plate_number,
+    make,
+    model,
+    year_acquired,
+    current_mileage
+  } = vehicleData;
+
+  const query = `
+    INSERT INTO public.vehicle (
+      vehicle_type_id,
+      branch_id,
+      plate_number,
+      make,
+      model,
+      year_acquired,
+      current_mileage
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    RETURNING vehicle_id;
+  `;
+
+  const values = [
+    vehicle_type_id,
+    branch_id,
+    plate_number,
+    make,
+    model,
+    year_acquired,
+    current_mileage
+  ];
+
+  const result = await pool.query(query, values);
+  return result.rows[0];
+}
+
+async function updateVehicle(vehicleId, vehicleData) {
+  const {
+    vehicle_type_id,
+    branch_id,
+    plate_number,
+    make,
+    model,
+    year_acquired,
+    current_mileage
+  } = vehicleData;
+
+  const query = `
+    UPDATE public.vehicle
+    SET
+      vehicle_type_id = $1,
+      branch_id = $2,
+      plate_number = $3,
+      make = $4,
+      model = $5,
+      year_acquired = $6,
+      current_mileage = $7,
+      updated_at = CURRENT_TIMESTAMP
+    WHERE vehicle_id = $8
+    RETURNING vehicle_id;
+  `;
+
+  const values = [
+    vehicle_type_id,
+    branch_id,
+    plate_number,
+    make,
+    model,
+    year_acquired,
+    current_mileage,
+    vehicleId
+  ];
+
+  const result = await pool.query(query, values);
+  return result.rows[0] || null;
+}
+
+async function deleteVehicle(vehicleId) {
+  const query = `
+    DELETE FROM public.vehicle
+    WHERE vehicle_id = $1
+    RETURNING vehicle_id;
+  `;
+
+  const result = await pool.query(query, [vehicleId]);
+  return result.rows[0] || null;
+}
+
 module.exports = {
   getAllVehicles,
-  getVehicleById
+  getVehicleById,
+  createVehicle,
+  updateVehicle,
+  deleteVehicle
 };

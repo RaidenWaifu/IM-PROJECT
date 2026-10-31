@@ -1,5 +1,4 @@
-﻿
-const express = require('express');
+﻿const express = require('express');
 const vehicleController = require('../controllers/vehicleController');
 const { authenticateToken } = require('../middleware/authMiddleware');
 
@@ -9,5 +8,8 @@ router.use(authenticateToken);
 
 router.get('/', vehicleController.listVehicles);
 router.get('/:id', vehicleController.getVehicleById);
+router.post('/', vehicleController.createVehicle);
+router.put('/:id', vehicleController.updateVehicle);
+router.delete('/:id', vehicleController.deleteVehicle);
 
 module.exports = router;
